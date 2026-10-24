@@ -86,7 +86,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onDelete, onEdit,
   }
 
   const isQrFromErpDomain = (qr: string | null | undefined) =>
-    Boolean(qr && /https?:\/\/sistema\.mfcomputers\.com\.ar\b/i.test(qr))
+    Boolean(qr && /https?:\/\/(localhost|127\.0\.0\.1|brabo)/i.test(qr))
 
   const handleSyncToWooCommerce = async () => {
     if (!displayedProduct) return
@@ -333,7 +333,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onDelete, onEdit,
   const codesGenerated = Boolean(displayedProduct.barcode && displayedProduct.qr_code)
   const qrWrongDomain = isQrFromErpDomain(displayedProduct.qr_code ?? null)
   const skuMissing = !displayedProduct.code || !displayedProduct.code.trim()
-  const wcBaseUrl = (process.env.NEXT_PUBLIC_WOOCOMMERCE_URL || "https://mfcomputers.com.ar").replace(/\/+$/, "")
+  const wcBaseUrl = (process.env.NEXT_PUBLIC_WOOCOMMERCE_URL || "").replace(/\/+$/, "")
   const wcSlug = displayedProduct.woocommerce_slug?.replace(/^\/+|\/+$/g, "").trim()
   const wcProductUrl = wcSlug ? `${wcBaseUrl}/${wcSlug}` : null
 

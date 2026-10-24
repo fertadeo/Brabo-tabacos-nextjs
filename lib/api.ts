@@ -4865,7 +4865,7 @@ export async function getWooCommerceOrders(params?: {
     if (params?.search) queryParams.append('search', params.search);
     if (params?.status) queryParams.append('status', params.status);
 
-    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8086/api/'}integration/webhook/woocommerce/order${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8087/api/'}integration/webhook/woocommerce/order${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     
     const response = await fetch(url, {
       method: 'GET',

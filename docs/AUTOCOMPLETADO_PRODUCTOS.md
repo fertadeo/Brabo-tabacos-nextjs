@@ -963,7 +963,7 @@ Esta sección contiene toda la información necesaria para que el equipo de fron
 
 #### Base URL
 ```
-http://localhost:8086/api/products/barcode
+http://localhost:8087/api/products/barcode
 ```
 *(Ajustar según el entorno: desarrollo, staging, producción)*
 

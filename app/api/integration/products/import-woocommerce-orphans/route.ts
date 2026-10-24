@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server'
  */
 
 function getBackendBaseUrl(): string {
-  let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8086/api/'
+  let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8087/api/'
   if (!url.endsWith('/')) url += '/'
   return url
 }

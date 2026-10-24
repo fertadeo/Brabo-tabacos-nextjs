@@ -1,25 +1,12 @@
-# Brabo Tabacos — ERP retail (front)
+# Brabo Tabacos — ERP front (Next.js)
 
-Instancia fork desde plantilla GOLD Aurix Retail (origen mfcomputers).
+Instancia fork desde GOLD retail (origen mfcomputers, sin branding MF).
 
-- Reparaciones: **deshabilitadas**
-- Branding: Brabo Tabacos
-- API esperada: `brabo-tabacos-api` en `http://localhost:8086/api/`
-
-## Local
+- API: https://github.com/fertadeo/Brabo-tabacos-api — default **`http://localhost:8087/api/`**
+- Reparaciones / WooCommerce: OFF vía env
+- En el mismo VPS que MF: no uses puerto 8086 (reservado a MF)
 
 ```bash
 cp .env.brabo.example .env.local
-npm install
-npm run dev -- -p 43127
+npm install && npm run dev -- -p 43127
 ```
-
-Credenciales: las del seed de la API (mock local). Ver `scripts/alta-instancia.md`.
-
-## Pendiente
-
-- Repo GitHub/Origin `fertadeo/brabo-tabacos` + push main
-- API `brabo-tabacos-api` (GOLD API limpia + seed tabacos)
-- Logos definitivos
-- Dominio / VPS / secretos
-- Registrar en Fenec Admin después
