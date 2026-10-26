@@ -358,6 +358,7 @@ export default function PuntoVentaPage() {
             : arsList,
         unit_price: overridden.unit_price,
         discount_percent: 0,
+        discount_fixed: 0,
         price_overridden: true as const,
         ars_list_unit_price: arsList,
         ars_unit_price: overridden.ars_unit_price ?? arsList,
@@ -370,6 +371,7 @@ export default function PuntoVentaPage() {
         list_unit_price: listUsd,
         unit_price: arsToUsd(priced.unit_price, exchangeRate),
         discount_percent: priced.discount_percent,
+        discount_fixed: priced.discount_fixed,
         price_overridden: false as const,
         ars_list_unit_price: arsList,
         ars_unit_price: priced.unit_price,
@@ -379,6 +381,7 @@ export default function PuntoVentaPage() {
       list_unit_price: arsList,
       unit_price: priced.unit_price,
       discount_percent: priced.discount_percent,
+      discount_fixed: priced.discount_fixed,
       price_overridden: false as const,
       ars_list_unit_price: undefined,
       ars_unit_price: undefined,
@@ -507,6 +510,7 @@ export default function PuntoVentaPage() {
             unit_price,
             price_overridden: true,
             discount_percent: 0,
+            discount_fixed: 0,
           }
         }
         return { ...i, unit_price }

@@ -103,6 +103,7 @@ export function applyUsdUnitPriceEdit(
     ars_unit_price: usdToArs(usd, rate),
     price_overridden: line.kind === "catalog" ? true : undefined,
     discount_percent: line.kind === "catalog" ? 0 : undefined,
+    discount_fixed: line.kind === "catalog" ? 0 : undefined,
   }
 }
 

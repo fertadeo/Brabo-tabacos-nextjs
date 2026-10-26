@@ -20,8 +20,14 @@ import {
   deletePosQuantityDiscount,
   getPosQuantityDiscounts,
   updatePosQuantityDiscount,
+  type PosDiscountThresholdType,
+  type PosDiscountType,
   type PosQuantityDiscount,
 } from "@/lib/api"
+import {
+  formatDiscountRuleBenefit,
+  formatDiscountRuleThreshold,
+} from "@/lib/pos-quantity-discounts"
 import { PRICE_LIST_OPTIONS } from "@/lib/price-lists"
 import { Loader2, Plus, Trash2 } from "lucide-react"
 
@@ -31,8 +37,12 @@ export function PosQuantityDiscountsSettings() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState("")
+  const [thresholdType, setThresholdType] = useState<PosDiscountThresholdType>("quantity")
   const [minQty, setMinQty] = useState("10")
+  const [minAmount, setMinAmount] = useState("10000")
+  const [discountType, setDiscountType] = useState<PosDiscountType>("percent")
   const [percent, setPercent] = useState("5")
+  const [fixedAmount, setFixedAmount] = useState("50")
   const [slug, setSlug] = useState<string>("all")
 
   const load = useCallback(async () => {
@@ -52,20 +62,37 @@ export function PosQuantityDiscountsSettings() {
     load()
   }, [load])
 
+  function defaultName(): string {
+    if (name.trim()) return name.trim()
+    if (thresholdType === "amount") {
+      const benefit =
+        discountType === "fixed" ? `−$${fixedAmount}/u` : `−${percent}%`
+      return `Desde $${minAmount} → ${benefit}`
+    }
+    const benefit = discountType === "fixed" ? `−$${fixedAmount}/u` : `−${percent}%`
+    return `${minQty}+ unidades → ${benefit}`
+  }
+
   async function handleCreate() {
     setSaving(true)
     setError(null)
     try {
       await createPosQuantityDiscount({
-        name: name.trim() || `${minQty}+ unidades`,
+        name: defaultName(),
+        threshold_type: thresholdType,
         min_quantity: Math.max(1, parseInt(minQty, 10) || 1),
+        min_amount: Math.max(0, parseFloat(minAmount.replace(",", ".")) || 0),
+        discount_type: discountType,
         discount_percent: Math.min(100, Math.max(0, parseFloat(percent.replace(",", ".")) || 0)),
+        discount_amount: Math.max(0, parseFloat(fixedAmount.replace(",", ".")) || 0),
         price_list_slug: slug === "all" ? null : slug,
         is_active: true,
       })
       setName("")
       setMinQty("10")
+      setMinAmount("10000")
       setPercent("5")
+      setFixedAmount("50")
       setSlug("all")
       await load()
     } catch (e) {
@@ -99,44 +126,22 @@ export function PosQuantityDiscountsSettings() {
       <CardHeader>
         <CardTitle>Descuentos escalonados (POS)</CardTitle>
         <CardDescription>
-          Si la cantidad de una línea alcanza el mínimo, se aplica el % sobre el precio de la lista
-          seleccionada. Gana el tramo con mayor cantidad mínima aplicable. El cajero puede seguir
-          editando el precio a mano.
+          Condición por unidades o por importe de la línea (precio de lista × cantidad). Beneficio en %
+          o monto fijo por unidad. Si varias reglas aplican, gana la que deja el precio más bajo. El
+          cajero puede seguir editando el precio a mano.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 items-end">
           <div className="space-y-1 lg:col-span-2">
             <Label htmlFor="disc-name">Nombre</Label>
             <Input
               id="disc-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: 10+ unidades"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="disc-min">Cant. mínima</Label>
-            <Input
-              id="disc-min"
-              type="number"
-              min={1}
-              value={minQty}
-              onChange={(e) => setMinQty(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="disc-pct">Descuento %</Label>
-            <Input
-              id="disc-pct"
-              type="number"
-              min={0}
-              max={100}
-              step="0.01"
-              value={percent}
-              onChange={(e) => setPercent(e.target.value)}
+              placeholder="Ej: 10+ unidades / Desde $10.000"
             />
           </div>
           <div className="space-y-1">
@@ -155,6 +160,88 @@ export function PosQuantityDiscountsSettings() {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-1">
+            <Label>Condición</Label>
+            <Select
+              value={thresholdType}
+              onValueChange={(v) => setThresholdType(v as PosDiscountThresholdType)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="quantity">Por unidades</SelectItem>
+                <SelectItem value="amount">Por importe</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {thresholdType === "quantity" ? (
+            <div className="space-y-1">
+              <Label htmlFor="disc-min">Cant. mínima</Label>
+              <Input
+                id="disc-min"
+                type="number"
+                min={1}
+                value={minQty}
+                onChange={(e) => setMinQty(e.target.value)}
+              />
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor="disc-min-amt">Importe mínimo ($)</Label>
+              <Input
+                id="disc-min-amt"
+                type="number"
+                min={0}
+                step="0.01"
+                value={minAmount}
+                onChange={(e) => setMinAmount(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <Label>Beneficio</Label>
+            <Select
+              value={discountType}
+              onValueChange={(v) => setDiscountType(v as PosDiscountType)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="percent">Porcentaje (%)</SelectItem>
+                <SelectItem value="fixed">Monto fijo ($/u)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {discountType === "percent" ? (
+            <div className="space-y-1">
+              <Label htmlFor="disc-pct">Descuento %</Label>
+              <Input
+                id="disc-pct"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={percent}
+                onChange={(e) => setPercent(e.target.value)}
+              />
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor="disc-fixed">Monto por unidad ($)</Label>
+              <Input
+                id="disc-fixed"
+                type="number"
+                min={0}
+                step="0.01"
+                value={fixedAmount}
+                onChange={(e) => setFixedAmount(e.target.value)}
+              />
+            </div>
+          )}
         </div>
         <Button type="button" onClick={handleCreate} disabled={saving}>
           {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
@@ -171,8 +258,8 @@ export function PosQuantityDiscountsSettings() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
-                  <TableHead className="text-right">Desde</TableHead>
-                  <TableHead className="text-right">%</TableHead>
+                  <TableHead>Condición</TableHead>
+                  <TableHead>Beneficio</TableHead>
                   <TableHead>Lista</TableHead>
                   <TableHead>Activo</TableHead>
                   <TableHead />
@@ -182,15 +269,22 @@ export function PosQuantityDiscountsSettings() {
                 {rows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-muted-foreground text-sm">
-                      No hay reglas. Agregá tramos (ej. 10 → 5%, 25 → 8%).
+                      No hay reglas. Ej: 10 u. → 5%, o desde $10.000 → −$50/u.
                     </TableCell>
                   </TableRow>
                 ) : (
                   rows.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>{row.name}</TableCell>
-                      <TableCell className="text-right tabular-nums">{row.min_quantity}</TableCell>
-                      <TableCell className="text-right tabular-nums">{row.discount_percent}%</TableCell>
+                      <TableCell className="text-sm">
+                        <Badge variant="outline" className="mr-1">
+                          {row.threshold_type === "amount" ? "Importe" : "Unidades"}
+                        </Badge>
+                        {formatDiscountRuleThreshold(row)}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {formatDiscountRuleBenefit(row)}
+                      </TableCell>
                       <TableCell>
                         {row.price_list_slug ? (
                           PRICE_LIST_OPTIONS.find((o) => o.slug === row.price_list_slug)?.name ||

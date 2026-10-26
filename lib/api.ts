@@ -1891,11 +1891,18 @@ export async function getPriceLists(): Promise<PriceList[]> {
   return Array.isArray(responseData.data) ? responseData.data : []
 }
 
+export type PosDiscountThresholdType = "quantity" | "amount"
+export type PosDiscountType = "percent" | "fixed"
+
 export interface PosQuantityDiscount {
   id: number
   name: string
+  threshold_type: PosDiscountThresholdType
   min_quantity: number
+  min_amount: number
+  discount_type: PosDiscountType
   discount_percent: number
+  discount_amount: number
   price_list_slug: string | null
   is_active: boolean
   sort_order: number
@@ -1905,8 +1912,12 @@ export interface PosQuantityDiscount {
 
 export interface CreatePosQuantityDiscountData {
   name: string
-  min_quantity: number
-  discount_percent: number
+  threshold_type?: PosDiscountThresholdType
+  min_quantity?: number
+  min_amount?: number
+  discount_type?: PosDiscountType
+  discount_percent?: number
+  discount_amount?: number
   price_list_slug?: string | null
   is_active?: boolean
   sort_order?: number
@@ -1930,7 +1941,14 @@ export async function getPosQuantityDiscounts(activeOnly = false): Promise<PosQu
   if (!response.ok) {
     throw new Error(responseData.message || `Error al obtener descuentos: ${response.status}`)
   }
-  return Array.isArray(responseData.data) ? responseData.data : []
+  const list = Array.isArray(responseData.data) ? responseData.data : []
+  return list.map((r) => ({
+    ...r,
+    threshold_type: r.threshold_type === "amount" ? "amount" : "quantity",
+    min_amount: Number(r.min_amount) || 0,
+    discount_type: r.discount_type === "fixed" ? "fixed" : "percent",
+    discount_amount: Number(r.discount_amount) || 0,
+  })) as PosQuantityDiscount[]
 }
 
 export async function createPosQuantityDiscount(
