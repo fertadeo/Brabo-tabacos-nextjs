@@ -78,8 +78,15 @@ export function UsersManagement() {
 
   const roles: Role[] = ['admin', 'gerencia', 'ventas', 'logistica', 'finanzas', 'manager', 'employee', 'viewer']
 
-  const [handleCreateModalOpenChange, confirmCreateDialog] = useConfirmBeforeClose(setIsCreateModalOpen)
-  const [handleEditModalOpenChange, confirmEditDialog] = useConfirmBeforeClose(setIsEditModalOpen)
+  const [handleCreateModalOpenChange, confirmCreateDialog] = useConfirmBeforeClose((open) => {
+    setIsCreateModalOpen(open)
+    // Evitar que el autofill del navegador deje "admin" en el buscador al cerrar el modal
+    if (!open) setSearchTerm("")
+  })
+  const [handleEditModalOpenChange, confirmEditDialog] = useConfirmBeforeClose((open) => {
+    setIsEditModalOpen(open)
+    if (!open) setSearchTerm("")
+  })
 
   useEffect(() => {
     loadUsers()
@@ -274,6 +281,7 @@ export function UsersManagement() {
   }, {} as Record<string, Permission[]>)
 
   const openEditModal = async (user: UserData) => {
+    setSearchTerm("")
     setSelectedUser(user)
     const userRole = user.role as Role
     setFormData({
@@ -311,10 +319,17 @@ export function UsersManagement() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
+            name="users-table-filter"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
           />
         </div>
         <Button onClick={() => {
           resetForm()
+          setSearchTerm("")
           setIsCreateModalOpen(true)
         }}>
           <Plus className="h-4 w-4 mr-2" />
@@ -434,9 +449,11 @@ export function UsersManagement() {
                 <Label htmlFor="username">Username *</Label>
                 <Input
                   id="username"
+                  name="new-user-username"
                   value={formData.username}
                   onChange={(e) => updateFormField("username", e.target.value)}
                   placeholder="usuario123"
+                  autoComplete="off"
                   aria-invalid={!!formErrors.username}
                   className={cn(formErrors.username && "border-destructive focus-visible:ring-destructive")}
                 />
@@ -449,10 +466,12 @@ export function UsersManagement() {
                 <div className="relative">
                   <Input
                     id="password"
+                    name="new-user-password"
                     type={showPassword ? "text" : "password"}
                     value={formData.password}
                     onChange={(e) => updateFormField("password", e.target.value)}
                     placeholder="••••••••"
+                    autoComplete="new-password"
                     aria-invalid={!!formErrors.password}
                     className={cn(
                       "pr-10",
@@ -629,7 +648,10 @@ export function UsersManagement() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+            <Button variant="outline" onClick={() => {
+              setSearchTerm("")
+              setIsCreateModalOpen(false)
+            }}>
               Cancelar
             </Button>
             <Button onClick={handleCreateUser} disabled={loading}>
@@ -670,8 +692,10 @@ export function UsersManagement() {
                 <Label htmlFor="edit-username">Username</Label>
                 <Input
                   id="edit-username"
+                  name="edit-user-username"
                   value={formData.username}
                   onChange={(e) => updateFormField("username", e.target.value)}
+                  autoComplete="off"
                 />
               </div>
               <div className="space-y-2">
@@ -679,10 +703,12 @@ export function UsersManagement() {
                 <div className="relative">
                   <Input
                     id="edit-password"
+                    name="edit-user-password"
                     type={showPassword ? "text" : "password"}
                     value={formData.password}
                     onChange={(e) => updateFormField("password", e.target.value)}
                     placeholder="Dejar vacío para no cambiar"
+                    autoComplete="new-password"
                     aria-invalid={!!formErrors.password}
                     className={cn(
                       "pr-10",
@@ -849,6 +875,7 @@ export function UsersManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
+              setSearchTerm("")
               setIsEditModalOpen(false)
               setSelectedUser(null)
               resetForm()
