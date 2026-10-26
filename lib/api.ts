@@ -1959,7 +1959,7 @@ export async function createCategory(categoryData: CreateCategoryData): Promise<
       let errorMessage = `Error al crear categoría: ${response.status} ${response.statusText}`
       try {
         const errorData = JSON.parse(errorText)
-        errorMessage = errorData.message || errorMessage
+        errorMessage = errorData.error || errorData.message || errorMessage
       } catch {
         // Si no se puede parsear, usar el mensaje por defecto
       }
@@ -7000,11 +7000,11 @@ export async function createUser(userData: {
       body: JSON.stringify({
         username: userData.username,
         password: userData.password,
-        first_name: userData.firstName,
-        last_name: userData.lastName,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
         email: userData.email,
         role: userData.role,
-        is_active: userData.is_active !== false,
+        isActive: userData.is_active !== false,
       }),
     })
     

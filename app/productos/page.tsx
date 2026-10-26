@@ -29,6 +29,11 @@ import { BarcodeSearchModal } from "@/components/barcode-search-modal"
 import { getProductImageUrl } from "@/lib/product-image-utils"
 import { filterProductCatalog } from "@/lib/product-catalog-filter"
 import { formatSaleIvaRateLabel, productIvaRate } from "@/lib/sale-iva"
+import {
+  PRICE_LIST_OPTIONS,
+  PRICE_LIST_SHORT_LABELS,
+  formatProductListPrice,
+} from "@/lib/price-lists"
 import { ProductExportDialog } from "@/components/product-export-dialog"
 import { ProductImportDialog } from "@/components/products/product-import-dialog"
 import { LinkWooCommerceIdsButton, LinkWooCommerceSummary } from "@/components/products/link-woocommerce-ids-button"
@@ -724,7 +729,11 @@ export default function ProductosPage() {
                         <TableRow>
                           <TableHead>Código</TableHead>
                           <TableHead>Producto</TableHead>
-                          <TableHead>Precio</TableHead>
+                          {PRICE_LIST_OPTIONS.map((opt) => (
+                            <TableHead key={opt.slug} className="text-right whitespace-nowrap">
+                              {PRICE_LIST_SHORT_LABELS[opt.slug]}
+                            </TableHead>
+                          ))}
                           <TableHead>IVA</TableHead>
                           <TableHead>Stock</TableHead>
                           <TableHead>Estado</TableHead>
@@ -741,6 +750,8 @@ export default function ProductosPage() {
                                 <Skeleton className="h-4 w-32" />
                               </div>
                             </TableCell>
+                            <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                             <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                             <TableCell><Skeleton className="h-4 w-10" /></TableCell>
                             <TableCell><Skeleton className="h-4 w-10" /></TableCell>
@@ -799,10 +810,19 @@ export default function ProductosPage() {
                         <p className="font-medium text-sm truncate" title={product.name}>
                           {product.name}
                         </p>
-                        <div className="flex items-center justify-between mt-2 gap-1 flex-wrap">
-                          <span className="font-semibold text-turquoise-600">
-                            ${Math.round(Number(product.price)).toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </span>
+                        <div className="mt-2 space-y-0.5 text-[11px] leading-tight">
+                          {PRICE_LIST_OPTIONS.map((opt) => (
+                            <div key={opt.slug} className="flex justify-between gap-2">
+                              <span className="text-muted-foreground truncate">
+                                {PRICE_LIST_SHORT_LABELS[opt.slug]}
+                              </span>
+                              <span className="font-semibold text-turquoise-600 tabular-nums">
+                                {formatProductListPrice(product, opt.slug)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-end mt-1.5">
                           <Badge variant="outline" className="text-[10px] shrink-0">
                             {formatSaleIvaRateLabel(productIvaRate(product))}
                           </Badge>
@@ -874,7 +894,11 @@ export default function ProductosPage() {
                     <TableRow>
                       <TableHead>Código</TableHead>
                       <TableHead>Producto</TableHead>
-                      <TableHead>Precio</TableHead>
+                      {PRICE_LIST_OPTIONS.map((opt) => (
+                        <TableHead key={opt.slug} className="text-right whitespace-nowrap">
+                          {PRICE_LIST_SHORT_LABELS[opt.slug]}
+                        </TableHead>
+                      ))}
                       <TableHead>IVA</TableHead>
                       <TableHead>Stock</TableHead>
                       <TableHead>Estado</TableHead>
@@ -915,7 +939,11 @@ export default function ProductosPage() {
                             <span className="font-medium truncate">{product.name}</span>
                           </div>
                         </TableCell>
-                        <TableCell>${Math.round(Number(product.price)).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</TableCell>
+                        {PRICE_LIST_OPTIONS.map((opt) => (
+                          <TableCell key={opt.slug} className="text-right tabular-nums whitespace-nowrap">
+                            {formatProductListPrice(product, opt.slug)}
+                          </TableCell>
+                        ))}
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
                             {formatSaleIvaRateLabel(productIvaRate(product))}

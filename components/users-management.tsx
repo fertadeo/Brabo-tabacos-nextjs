@@ -92,7 +92,19 @@ export function UsersManagement() {
 
   const handleCreateUser = async () => {
     if (!formData.username || !formData.role || !formData.password) {
-      setError('Username, contraseña y rol son requeridos')
+      setError('Usuario, contraseña y rol son requeridos')
+      return
+    }
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      setError('Nombre y apellido son requeridos')
+      return
+    }
+    if (!formData.email.trim() || !formData.email.includes('@')) {
+      setError('Email válido es requerido')
+      return
+    }
+    if (formData.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres')
       return
     }
 
@@ -100,11 +112,11 @@ export function UsersManagement() {
     setError(null)
     try {
       await createUser({
-        username: formData.username,
+        username: formData.username.trim(),
         password: formData.password,
-        firstName: formData.firstName || undefined,
-        lastName: formData.lastName || undefined,
-        email: formData.email || undefined,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
         role: formData.role,
         is_active: formData.is_active
       })
@@ -382,7 +394,7 @@ export function UsersManagement() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">Nombre</Label>
+                <Label htmlFor="firstName">Nombre *</Label>
                 <Input
                   id="firstName"
                   value={formData.firstName}
@@ -391,7 +403,7 @@ export function UsersManagement() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Apellido</Label>
+                <Label htmlFor="lastName">Apellido *</Label>
                 <Input
                   id="lastName"
                   value={formData.lastName}
@@ -401,7 +413,7 @@ export function UsersManagement() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 type="email"

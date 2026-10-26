@@ -28,6 +28,7 @@ import {
   BadgePercent,
   Activity,
   HeartPulse,
+  UserPlus,
 } from "lucide-react"
 import { FEATURE_REPARACIONES, FEATURE_TIENDA } from "@/lib/features"
 
@@ -292,6 +293,13 @@ export const MENU_GROUPS: MenuGroup[] = [
         label: "Bancos", 
         icon: Building2, 
         href: "/bancos",
+        requiredRoles: ['admin', 'gerencia', 'superadmin']
+      },
+      {
+        id: "centro-cuentas",
+        label: "Centro de cuentas",
+        icon: UserPlus,
+        href: "/centro-cuentas",
         requiredRoles: ['admin', 'gerencia', 'superadmin']
       },
       { 

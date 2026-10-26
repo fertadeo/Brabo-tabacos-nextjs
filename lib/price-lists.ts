@@ -42,3 +42,21 @@ export function resolveProductListPrice(
   }
   return Number(product.price) || 0
 }
+
+export function formatProductListPrice(
+  product: {
+    price?: number | null
+    prices?: ProductPricesBySlug | null
+  },
+  slug: PriceListSlug = DEFAULT_PRICE_LIST_SLUG
+): string {
+  const n = Math.round(resolveProductListPrice(product, slug))
+  return `$${n.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+}
+
+/** Etiquetas cortas para columnas de tabla. */
+export const PRICE_LIST_SHORT_LABELS: Record<PriceListSlug, string> = {
+  venta_local: "Local",
+  mayorista: "Mayorista",
+  revendedor: "Revendedor",
+}

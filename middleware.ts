@@ -17,6 +17,7 @@ const protectedRoutes = [
   '/facturacion',
   '/caja',
   '/configuracion',
+  '/centro-cuentas',
   '/contabilidad',
   '/salud-sistema',
 ]

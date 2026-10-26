@@ -11,6 +11,10 @@ import Image from "next/image"
 import { Product, updateProduct, syncProductToWooCommerce, getProductById } from "@/lib/api"
 import { getAllProductImages } from "@/lib/product-image-utils"
 import { formatSaleIvaRateLabel, productIvaRate } from "@/lib/sale-iva"
+import {
+  PRICE_LIST_OPTIONS,
+  formatProductListPrice,
+} from "@/lib/price-lists"
 import { useToast } from "@/contexts/ToastContext"
 import QRCodeSVG from "react-qr-code"
 import JsBarcode from "jsbarcode"
@@ -537,14 +541,28 @@ export function ProductDetailModal({ product, isOpen, onClose, onDelete, onEdit,
             )}
 
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Precio:</span>
-                <span className="font-semibold text-lg">${Math.round(Number(displayedProduct.price)).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                <Badge variant="outline" className="text-xs">
-                  IVA {formatSaleIvaRateLabel(productIvaRate(displayedProduct))}
-                </Badge>
-                <span className="text-xs text-muted-foreground">(precio con IVA incluido)</span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Listas de precio</span>
+                  <Badge variant="outline" className="text-xs">
+                    IVA {formatSaleIvaRateLabel(productIvaRate(displayedProduct))}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">(con IVA incluido)</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {PRICE_LIST_OPTIONS.map((opt) => (
+                    <div
+                      key={opt.slug}
+                      className="rounded-md border bg-muted/40 px-3 py-2"
+                    >
+                      <p className="text-xs text-muted-foreground">{opt.name}</p>
+                      <p className="font-semibold text-lg tabular-nums">
+                        {formatProductListPrice(displayedProduct, opt.slug)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
