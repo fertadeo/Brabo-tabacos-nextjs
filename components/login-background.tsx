@@ -13,7 +13,7 @@ export function LoginBackground() {
       className="pointer-events-none absolute inset-0 z-0 bg-background"
     >
       <Image
-        src="/images/bglogin.webp"
+        src="/images/bglogin.jpg"
         alt=""
         fill
         priority
