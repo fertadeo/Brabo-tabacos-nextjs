@@ -8,6 +8,7 @@ export default function LoginLayout({
   return (
     <div className="min-h-screen">
       <link rel="preload" as="image" href="/images/bglogin.jpg" type="image/jpeg" />
+      <link rel="preload" as="image" href="/images/aurix-logo.png" />
       {children}
     </div>
   )
