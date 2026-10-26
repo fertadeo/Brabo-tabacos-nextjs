@@ -65,13 +65,20 @@ export default function LoginPage() {
       <LoginBackground />
       <div className="relative z-10 w-full lg:w-1/2 lg:ml-auto flex items-center justify-center p-6 min-h-screen overflow-y-auto">
         <div className="w-full max-w-md space-y-6 p-6 bg-card rounded-lg shadow-sm border border-border/50">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Iniciar Sesión</h1>
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">
+            <Image
+              src="/images/aurix-logo.png"
+              alt="Aurix ERP"
+              width={180}
+              height={48}
+              priority
+              className="h-10 w-auto opacity-90"
+            />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">Iniciar Sesión</h1>
           <p className="text-sm text-muted-foreground">
-            ¿No tienes una cuenta?{" "}
-            <Link href="/register" className="text-turquoise-500 hover:text-turquoise-600 font-medium">
-              Regístrate
-            </Link>
+            Accedé a tu instancia con usuario y contraseña
           </p>
         </div>
 
