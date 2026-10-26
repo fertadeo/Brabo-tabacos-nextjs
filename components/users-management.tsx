@@ -45,11 +45,17 @@ import {
   type Permission
 } from "@/lib/api"
 import { ROLE_LABELS, type Role } from "@/app/config/menu"
+import { cn } from "@/lib/utils"
+
+type UserFormField = "username" | "password" | "firstName" | "lastName" | "email" | "role"
+type FormErrors = Partial<Record<UserFormField, string>>
 
 export function UsersManagement() {
   const [users, setUsers] = useState<UserData[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [modalError, setModalError] = useState<string | null>(null)
+  const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -93,26 +99,47 @@ export function UsersManagement() {
     }
   }
 
+  const clearFieldError = (field: UserFormField) => {
+    setFormErrors((prev) => {
+      if (!prev[field]) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
+
+  const updateFormField = <K extends keyof typeof formData>(field: K, value: (typeof formData)[K]) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    if (field in { username: 1, password: 1, firstName: 1, lastName: 1, email: 1, role: 1 }) {
+      clearFieldError(field as UserFormField)
+    }
+    setModalError(null)
+  }
+
+  const validateCreateForm = (): FormErrors => {
+    const errors: FormErrors = {}
+    if (!formData.username.trim()) errors.username = "El username es requerido"
+    if (!formData.password) errors.password = "La contraseña es requerida"
+    else if (formData.password.length < 6) errors.password = "Mínimo 6 caracteres"
+    if (!formData.firstName.trim()) errors.firstName = "El nombre es requerido"
+    if (!formData.lastName.trim()) errors.lastName = "El apellido es requerido"
+    if (!formData.email.trim()) errors.email = "El email es requerido"
+    else if (!formData.email.includes("@")) errors.email = "Ingresá un email válido"
+    if (!formData.role) errors.role = "Seleccioná un rol"
+    return errors
+  }
+
   const handleCreateUser = async () => {
-    if (!formData.username || !formData.role || !formData.password) {
-      setError('Usuario, contraseña y rol son requeridos')
-      return
-    }
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      setError('Nombre y apellido son requeridos')
-      return
-    }
-    if (!formData.email.trim() || !formData.email.includes('@')) {
-      setError('Email válido es requerido')
-      return
-    }
-    if (formData.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres')
+    const errors = validateCreateForm()
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      setModalError("Completá los campos marcados para continuar")
       return
     }
 
     setLoading(true)
-    setError(null)
+    setModalError(null)
+    setFormErrors({})
     try {
       await createUser({
         username: formData.username.trim(),
@@ -128,7 +155,7 @@ export function UsersManagement() {
       resetForm()
       await loadUsers()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear usuario')
+      setModalError(err instanceof Error ? err.message : 'Error al crear usuario')
       console.error('Error creando usuario:', err)
     } finally {
       setLoading(false)
@@ -136,13 +163,24 @@ export function UsersManagement() {
   }
 
   const handleUpdateUser = async () => {
-    if (!selectedUser || !formData.role) {
-      setError('Rol es requerido')
+    const errors: FormErrors = {}
+    if (!formData.role) errors.role = "Seleccioná un rol"
+    if (formData.password && formData.password.length < 6) {
+      errors.password = "Mínimo 6 caracteres"
+    }
+    if (formData.email.trim() && !formData.email.includes("@")) {
+      errors.email = "Ingresá un email válido"
+    }
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      setModalError("Revisá los campos marcados")
       return
     }
+    if (!selectedUser) return
 
     setLoading(true)
-    setError(null)
+    setModalError(null)
+    setFormErrors({})
     try {
       await updateUser(selectedUser.id, {
         username: formData.username,
@@ -159,7 +197,7 @@ export function UsersManagement() {
       setSelectedUser(null)
       await loadUsers()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al actualizar usuario')
+      setModalError(err instanceof Error ? err.message : 'Error al actualizar usuario')
       console.error('Error actualizando usuario:', err)
     } finally {
       setLoading(false)
@@ -195,6 +233,8 @@ export function UsersManagement() {
     setSelectedRolePermissions([])
     setShowRolePermissions(false)
     setShowPassword(false)
+    setFormErrors({})
+    setModalError(null)
   }
 
   // Cargar permisos del rol cuando se selecciona
@@ -375,15 +415,26 @@ export function UsersManagement() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {modalError && (
+              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{modalError}</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="username">Username *</Label>
                 <Input
                   id="username"
                   value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  onChange={(e) => updateFormField("username", e.target.value)}
                   placeholder="usuario123"
+                  aria-invalid={!!formErrors.username}
+                  className={cn(formErrors.username && "border-destructive focus-visible:ring-destructive")}
                 />
+                {formErrors.username && (
+                  <p className="text-xs text-destructive">{formErrors.username}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña *</Label>
@@ -392,9 +443,13 @@ export function UsersManagement() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) => updateFormField("password", e.target.value)}
                     placeholder="••••••••"
-                    className="pr-10"
+                    aria-invalid={!!formErrors.password}
+                    className={cn(
+                      "pr-10",
+                      formErrors.password && "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
                   <button
                     type="button"
@@ -405,6 +460,9 @@ export function UsersManagement() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {formErrors.password && (
+                  <p className="text-xs text-destructive">{formErrors.password}</p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -413,18 +471,28 @@ export function UsersManagement() {
                 <Input
                   id="firstName"
                   value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  onChange={(e) => updateFormField("firstName", e.target.value)}
                   placeholder="Juan"
+                  aria-invalid={!!formErrors.firstName}
+                  className={cn(formErrors.firstName && "border-destructive focus-visible:ring-destructive")}
                 />
+                {formErrors.firstName && (
+                  <p className="text-xs text-destructive">{formErrors.firstName}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Apellido *</Label>
                 <Input
                   id="lastName"
                   value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  onChange={(e) => updateFormField("lastName", e.target.value)}
                   placeholder="Pérez"
+                  aria-invalid={!!formErrors.lastName}
+                  className={cn(formErrors.lastName && "border-destructive focus-visible:ring-destructive")}
                 />
+                {formErrors.lastName && (
+                  <p className="text-xs text-destructive">{formErrors.lastName}</p>
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -433,9 +501,14 @@ export function UsersManagement() {
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => updateFormField("email", e.target.value)}
                 placeholder="usuario@empresa.com"
+                aria-invalid={!!formErrors.email}
+                className={cn(formErrors.email && "border-destructive focus-visible:ring-destructive")}
               />
+              {formErrors.email && (
+                <p className="text-xs text-destructive">{formErrors.email}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Rol *</Label>
@@ -443,12 +516,15 @@ export function UsersManagement() {
                 value={formData.role} 
                 onValueChange={async (value) => {
                   const selectedRole = value as Role
-                  setFormData({ ...formData, role: selectedRole })
+                  updateFormField("role", selectedRole)
                   await loadRolePermissions(selectedRole)
                   setShowRolePermissions(true)
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  aria-invalid={!!formErrors.role}
+                  className={cn(formErrors.role && "border-destructive focus:ring-destructive")}
+                >
                   <SelectValue placeholder="Selecciona un rol" />
                 </SelectTrigger>
                 <SelectContent>
@@ -459,6 +535,9 @@ export function UsersManagement() {
                   ))}
                 </SelectContent>
               </Select>
+              {formErrors.role && (
+                <p className="text-xs text-destructive">{formErrors.role}</p>
+              )}
               {formData.role && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Info className="h-3 w-3" />
@@ -572,13 +651,19 @@ export function UsersManagement() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {modalError && (
+              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{modalError}</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-username">Username</Label>
                 <Input
                   id="edit-username"
                   value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  onChange={(e) => updateFormField("username", e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -588,9 +673,13 @@ export function UsersManagement() {
                     id="edit-password"
                     type={showPassword ? "text" : "password"}
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) => updateFormField("password", e.target.value)}
                     placeholder="Dejar vacío para no cambiar"
-                    className="pr-10"
+                    aria-invalid={!!formErrors.password}
+                    className={cn(
+                      "pr-10",
+                      formErrors.password && "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
                   <button
                     type="button"
@@ -601,6 +690,9 @@ export function UsersManagement() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {formErrors.password && (
+                  <p className="text-xs text-destructive">{formErrors.password}</p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -609,7 +701,7 @@ export function UsersManagement() {
                 <Input
                   id="edit-firstName"
                   value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  onChange={(e) => updateFormField("firstName", e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -617,7 +709,7 @@ export function UsersManagement() {
                 <Input
                   id="edit-lastName"
                   value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  onChange={(e) => updateFormField("lastName", e.target.value)}
                 />
               </div>
             </div>
@@ -627,8 +719,13 @@ export function UsersManagement() {
                 id="edit-email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => updateFormField("email", e.target.value)}
+                aria-invalid={!!formErrors.email}
+                className={cn(formErrors.email && "border-destructive focus-visible:ring-destructive")}
               />
+              {formErrors.email && (
+                <p className="text-xs text-destructive">{formErrors.email}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-role">Rol *</Label>
@@ -636,12 +733,15 @@ export function UsersManagement() {
                 value={formData.role} 
                 onValueChange={async (value) => {
                   const selectedRole = value as Role
-                  setFormData({ ...formData, role: selectedRole })
+                  updateFormField("role", selectedRole)
                   await loadRolePermissions(selectedRole)
                   setShowRolePermissions(true)
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  aria-invalid={!!formErrors.role}
+                  className={cn(formErrors.role && "border-destructive focus:ring-destructive")}
+                >
                   <SelectValue placeholder="Selecciona un rol" />
                 </SelectTrigger>
                 <SelectContent>
@@ -652,6 +752,9 @@ export function UsersManagement() {
                   ))}
                 </SelectContent>
               </Select>
+              {formErrors.role && (
+                <p className="text-xs text-destructive">{formErrors.role}</p>
+              )}
               {formData.role && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Info className="h-3 w-3" />
