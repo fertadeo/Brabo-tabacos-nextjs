@@ -18,6 +18,7 @@ import {
   type DashboardChartData,
   type DashboardChartPeriod,
 } from "@/lib/dashboard-chart-data"
+import { FEATURE_REPARACIONES } from "@/lib/features"
 import { cn } from "@/lib/utils"
 import { Loader2, LineChart, PieChartIcon, Wrench } from "lucide-react"
 import type { TooltipProps } from "recharts"
@@ -272,56 +273,58 @@ export function DashboardCharts({
         </Card>
       </div>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Wrench className="h-4 w-4 text-turquoise-500" />
-            Taller — órdenes abiertas por estado
-          </CardTitle>
-          <CardDescription>Distribución actual del pipeline de reparaciones</CardDescription>
-        </CardHeader>
-        <CardContent className="pb-6">
-          {loading ? (
-            <div className="flex h-[220px] items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : !hasRepairData ? (
-            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
-              No hay órdenes abiertas en taller
-            </div>
-          ) : (
-            <ChartContainer
-              config={Object.fromEntries(
-                data!.repairByStatus.map((r) => [r.status, { label: r.label, color: r.fill }])
-              )}
-              className="h-[220px] w-full"
-            >
-              <BarChart
-                data={data!.repairByStatus}
-                layout="vertical"
-                margin={{ top: 4, right: 16, left: 4, bottom: 4 }}
+      {FEATURE_REPARACIONES && (
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-turquoise-500" />
+              Taller — órdenes abiertas por estado
+            </CardTitle>
+            <CardDescription>Distribución actual del pipeline de reparaciones</CardDescription>
+          </CardHeader>
+          <CardContent className="pb-6">
+            {loading ? (
+              <div className="flex h-[220px] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : !hasRepairData ? (
+              <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+                No hay órdenes abiertas en taller
+              </div>
+            ) : (
+              <ChartContainer
+                config={Object.fromEntries(
+                  data!.repairByStatus.map((r) => [r.status, { label: r.label, color: r.fill }])
+                )}
+                className="h-[220px] w-full"
               >
-                <CartesianGrid horizontal={false} strokeDasharray="3 3" className="stroke-border/40" />
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="label"
-                  width={140}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 11 }}
-                />
-                <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={22}>
-                  {data!.repairByStatus.map((entry) => (
-                    <Cell key={entry.status} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
+                <BarChart
+                  data={data!.repairByStatus}
+                  layout="vertical"
+                  margin={{ top: 4, right: 16, left: 4, bottom: 4 }}
+                >
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" className="stroke-border/40" />
+                  <XAxis type="number" hide />
+                  <YAxis
+                    type="category"
+                    dataKey="label"
+                    width={140}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                  <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={22}>
+                    {data!.repairByStatus.map((entry) => (
+                      <Cell key={entry.status} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

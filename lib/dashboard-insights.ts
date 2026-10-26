@@ -19,6 +19,7 @@ import {
   type ProductStats,
 } from "@/lib/api"
 import { getCalendarMonthRange } from "@/lib/dashboard-monthly-sales"
+import { FEATURE_REPARACIONES } from "@/lib/features"
 
 export interface DashboardInsightsView {
   period: { dateFrom: string; dateTo: string }
@@ -322,11 +323,17 @@ async function computeInsightsClientSide(
     await Promise.all([
       paginateSales(dateFrom, dateTo).catch(() => [] as Sale[]),
       paginateOrders(dateFrom, dateTo).catch(() => [] as Order[]),
-      paginateRepairs(dateFrom, dateTo).catch(() => [] as RepairOrder[]),
-      getRepairOrders({ limit: 200, page: 1 }).catch(() => null),
+      FEATURE_REPARACIONES
+        ? paginateRepairs(dateFrom, dateTo).catch(() => [] as RepairOrder[])
+        : Promise.resolve([] as RepairOrder[]),
+      FEATURE_REPARACIONES
+        ? getRepairOrders({ limit: 200, page: 1 }).catch(() => null)
+        : Promise.resolve(null),
       getOrders({ status: "pendiente_preparacion", limit: 1, page: 1 }).catch(() => null),
       getSales({ sync_status: "pending", limit: 1, page: 1 }).catch(() => null),
-      getRepairOrderStats().catch(() => null),
+      FEATURE_REPARACIONES
+        ? getRepairOrderStats().catch(() => null)
+        : Promise.resolve(null),
     ])
 
   let topProduct: DashboardTopProductByUnitPrice | null = null

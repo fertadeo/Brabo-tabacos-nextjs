@@ -24,6 +24,7 @@ import {
   type DashboardChartPeriod,
 } from "@/lib/dashboard-chart-data"
 import { DashboardCharts } from "@/components/dashboard-charts"
+import { FEATURE_REPARACIONES } from "@/lib/features"
 import {
   Package,
   DollarSign,
@@ -139,6 +140,11 @@ export default function Dashboard() {
     if (raw == null) return 0
     return parseFloat(String(raw).replace(/[^\d.-]/g, "") || "0") || 0
   })()
+
+  const dashboardAlerts =
+    insights?.alerts.filter(
+      (alert) => FEATURE_REPARACIONES || !alert.href?.startsWith("/reparaciones")
+    ) ?? []
 
   return (
     <ERPLayout activeItem="dashboard">
@@ -344,7 +350,7 @@ export default function Dashboard() {
         {/* Destacados del mes */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Destacados del mes</h2>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className={`grid gap-4 ${FEATURE_REPARACIONES ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -374,35 +380,37 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Wrench className="h-4 w-4 text-turquoise-500" />
-                  Reparación más elevada
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                ) : insights?.topRepair ? (
-                  <>
-                    <p className="font-semibold">{insights.topRepair.client_name}</p>
-                    <p className="text-2xl font-bold text-turquoise-600 mt-1">
-                      ${insights.topRepair.total_amount.toLocaleString("es-AR")}
-                    </p>
-                    <Link
-                      href={`/reparaciones/${insights.topRepair.id}`}
-                      className="text-xs text-turquoise-500 hover:underline mt-2 inline-flex items-center gap-1"
-                    >
-                      {insights.topRepair.repair_number}
-                      <ArrowUpRight className="h-3 w-3" />
-                    </Link>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Sin reparaciones registradas en el mes</p>
-                )}
-              </CardContent>
-            </Card>
+            {FEATURE_REPARACIONES && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Wrench className="h-4 w-4 text-turquoise-500" />
+                    Reparación más elevada
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  ) : insights?.topRepair ? (
+                    <>
+                      <p className="font-semibold">{insights.topRepair.client_name}</p>
+                      <p className="text-2xl font-bold text-turquoise-600 mt-1">
+                        ${insights.topRepair.total_amount.toLocaleString("es-AR")}
+                      </p>
+                      <Link
+                        href={`/reparaciones/${insights.topRepair.id}`}
+                        className="text-xs text-turquoise-500 hover:underline mt-2 inline-flex items-center gap-1"
+                      >
+                        {insights.topRepair.repair_number}
+                        <ArrowUpRight className="h-3 w-3" />
+                      </Link>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Sin reparaciones registradas en el mes</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader className="pb-2">
@@ -410,7 +418,11 @@ export default function Dashboard() {
                   <Crown className="h-4 w-4 text-amber-500" />
                   Mejor cliente del mes
                 </CardTitle>
-                <CardDescription>Ventas POS + pedidos + reparaciones</CardDescription>
+                <CardDescription>
+                  {FEATURE_REPARACIONES
+                    ? "Ventas POS + pedidos + reparaciones"
+                    : "Ventas POS + pedidos"}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -423,8 +435,13 @@ export default function Dashboard() {
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
                       POS: ${insights.topClient.from_pos.toLocaleString("es-AR")} · Pedidos:{" "}
-                      ${insights.topClient.from_orders.toLocaleString("es-AR")} · Taller:{" "}
-                      ${insights.topClient.from_repairs.toLocaleString("es-AR")}
+                      ${insights.topClient.from_orders.toLocaleString("es-AR")}
+                      {FEATURE_REPARACIONES && (
+                        <>
+                          {" "}
+                          · Taller: ${insights.topClient.from_repairs.toLocaleString("es-AR")}
+                        </>
+                      )}
                     </p>
                   </>
                 ) : (
@@ -442,8 +459,8 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Atención hoy + Taller */}
-        <div className="grid gap-4 md:grid-cols-2">
+        {/* Atención hoy (+ Taller si el módulo está activo) */}
+        <div className={`grid gap-4 ${FEATURE_REPARACIONES ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -457,9 +474,9 @@ export default function Dashboard() {
                 <div className="flex justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : insights?.alerts.length ? (
+              ) : dashboardAlerts.length ? (
                 <ul className="space-y-3">
-                  {insights.alerts.map((alert) => (
+                  {dashboardAlerts.map((alert) => (
                     <li key={alert.id}>
                       <Link
                         href={alert.href ?? "#"}
@@ -492,61 +509,63 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Wrench className="h-5 w-5" />
-                Taller de reparaciones
-              </CardTitle>
-              <CardDescription>Órdenes abiertas y ticket del mes</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {loading ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-2xl font-bold">{insights?.repairPipeline.openCount ?? 0}</div>
-                      <div className="text-xs text-muted-foreground">Órdenes abiertas</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-turquoise-600">
-                        ${(insights?.repairPipeline.amountInWorkshop ?? 0).toLocaleString("es-AR")}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Monto en taller</div>
-                    </div>
+          {FEATURE_REPARACIONES && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Wrench className="h-5 w-5" />
+                  Taller de reparaciones
+                </CardTitle>
+                <CardDescription>Órdenes abiertas y ticket del mes</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {loading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Ticket promedio (mes)</span>
-                    <span className="font-medium">
-                      ${(insights?.repairPipeline.monthAverageTicket ?? 0).toLocaleString("es-AR", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
-                  </div>
-                  {insights?.repairPipeline.byStatus &&
-                    Object.keys(insights.repairPipeline.byStatus).length > 0 && (
-                      <div className="space-y-1 border-t pt-3">
-                        {Object.entries(insights.repairPipeline.byStatus).map(([status, count]) => (
-                          <div key={status} className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              {REPAIR_ORDER_STATUS_LABELS[status as RepairOrderStatus] ?? status}
-                            </span>
-                            <Badge variant="outline">{count}</Badge>
-                          </div>
-                        ))}
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-2xl font-bold">{insights?.repairPipeline.openCount ?? 0}</div>
+                        <div className="text-xs text-muted-foreground">Órdenes abiertas</div>
                       </div>
-                    )}
-                  <Button variant="outline" size="sm" className="w-full bg-transparent" asChild>
-                    <Link href="/reparaciones">Ver reparaciones</Link>
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                      <div>
+                        <div className="text-2xl font-bold text-turquoise-600">
+                          ${(insights?.repairPipeline.amountInWorkshop ?? 0).toLocaleString("es-AR")}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Monto en taller</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Ticket promedio (mes)</span>
+                      <span className="font-medium">
+                        ${(insights?.repairPipeline.monthAverageTicket ?? 0).toLocaleString("es-AR", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </span>
+                    </div>
+                    {insights?.repairPipeline.byStatus &&
+                      Object.keys(insights.repairPipeline.byStatus).length > 0 && (
+                        <div className="space-y-1 border-t pt-3">
+                          {Object.entries(insights.repairPipeline.byStatus).map(([status, count]) => (
+                            <div key={status} className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">
+                                {REPAIR_ORDER_STATUS_LABELS[status as RepairOrderStatus] ?? status}
+                              </span>
+                              <Badge variant="outline">{count}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    <Button variant="outline" size="sm" className="w-full bg-transparent" asChild>
+                      <Link href="/reparaciones">Ver reparaciones</Link>
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Pedidos y Integraciones */}
