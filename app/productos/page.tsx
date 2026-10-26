@@ -30,6 +30,7 @@ import { getProductImageUrl } from "@/lib/product-image-utils"
 import { filterProductCatalog } from "@/lib/product-catalog-filter"
 import { formatSaleIvaRateLabel, productIvaRate } from "@/lib/sale-iva"
 import { ProductExportDialog } from "@/components/product-export-dialog"
+import { ProductImportDialog } from "@/components/products/product-import-dialog"
 import { LinkWooCommerceIdsButton, LinkWooCommerceSummary } from "@/components/products/link-woocommerce-ids-button"
 import { FEATURE_WOOCOMMERCE } from "@/lib/features"
 import Image from "next/image"
@@ -66,6 +67,7 @@ import {
   PackagePlus,
   Truck,
   BadgePercent,
+  Upload,
 } from "lucide-react"
 
 export default function ProductosPage() {
@@ -98,6 +100,7 @@ export default function ProductosPage() {
   const [linkSummary, setLinkSummary] = useState<LinkWooCommerceIdsSummary | null>(null)
   const [lastLinkAt, setLastLinkAt] = useState<string | null>(null)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
 
   const STORAGE_KEYS = {
     viewMode: "productos-view-mode",
@@ -355,6 +358,12 @@ export default function ProductosPage() {
                       <BadgePercent className="h-4 w-4 mr-2" />
                       Actualización de precios
                     </Link>
+                  </Button>
+                )}
+                {canManageProducts && (
+                  <Button variant="outline" onClick={() => setIsImportDialogOpen(true)} disabled={loading}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Importar
                   </Button>
                 )}
                 <Button variant="outline" onClick={() => setIsExportDialogOpen(true)} disabled={loading}>
@@ -1049,6 +1058,15 @@ export default function ProductosPage() {
           onOpenChange={setIsExportDialogOpen}
           filteredProducts={filteredCatalog}
           allProducts={allProducts}
+        />
+
+        <ProductImportDialog
+          open={isImportDialogOpen}
+          onOpenChange={setIsImportDialogOpen}
+          onImported={() => {
+            loadProducts()
+            loadProductStats()
+          }}
         />
 
         {/* Modal de búsqueda por código de barras */}

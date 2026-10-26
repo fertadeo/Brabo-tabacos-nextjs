@@ -2827,6 +2827,92 @@ export async function getProductById(id: number): Promise<Product> {
   }
 }
 
+/** Ítem flexible para POST /api/products/import (solo name es obligatorio en servidor). */
+export interface ProductImportItemPayload {
+  name?: string | null
+  code?: string | null
+  category?: string | null
+  category_id?: number | null
+  price?: number | null
+  prices?: ProductPricesBySlug | null
+  iva_rate?: number | null
+  stock?: number | null
+  min_stock?: number | null
+  max_stock?: number | null
+  description?: string | null
+  is_active?: boolean | null
+  allow_backorders?: boolean | null
+}
+
+export interface ProductImportOptions {
+  dry_run?: boolean
+  create_missing_categories?: boolean
+  on_duplicate_code?: 'skip' | 'update'
+  code_prefix?: string
+  activate_without_price?: boolean
+  default_iva_rate?: number
+}
+
+export interface ProductImportRowResult {
+  index: number
+  status: 'created' | 'updated' | 'skipped' | 'error' | 'would_create' | 'would_update' | 'would_skip'
+  code?: string
+  name?: string
+  product_id?: number
+  category_id?: number | null
+  prices?: ProductPricesBySlug
+  warnings: string[]
+  error?: string
+}
+
+export interface ProductImportResult {
+  dry_run: boolean
+  total: number
+  created: number
+  updated: number
+  skipped: number
+  errors: number
+  rows: ProductImportRowResult[]
+}
+
+/**
+ * Importación masiva tolerante a datos faltantes.
+ * POST /api/products/import — roles admin / gerencia
+ */
+export async function importProductsBulk(
+  items: ProductImportItemPayload[],
+  options: ProductImportOptions = {}
+): Promise<ProductImportResult> {
+  const apiUrl = getApiUrl()
+  const token = getAccessToken()
+  const response = await fetch(`${apiUrl}products/import`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      items,
+      dry_run: options.dry_run === true,
+      create_missing_categories: options.create_missing_categories !== false,
+      on_duplicate_code: options.on_duplicate_code === 'update' ? 'update' : 'skip',
+      code_prefix: options.code_prefix || 'IMP',
+      activate_without_price: options.activate_without_price === true,
+      default_iva_rate: options.default_iva_rate ?? 21,
+    }),
+  })
+
+  const responseData = await response.json()
+  if (!response.ok) {
+    throw new Error(
+      responseData?.error ||
+        responseData?.message ||
+        `Error en importación: ${response.status}`
+    )
+  }
+  return responseData.data as ProductImportResult
+}
+
 /**
  * Crea un nuevo producto
  * Roles permitidos: solo gerencia
