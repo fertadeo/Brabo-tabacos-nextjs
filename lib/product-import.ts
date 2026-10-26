@@ -245,32 +245,91 @@ export function parseDelimitedText(text: string): ParsedImportSheet {
   return rowsToItems(headers, rows)
 }
 
+function sheetLooksLikeProductImport(headers: string[]): boolean {
+  const normalized = headers.map((h) => normalizeHeader(h))
+  // Hoja de productos: tiene "nombre" (o alias) y no es un resumen métrica/valor
+  const hasName = normalized.some(
+    (h) =>
+      h === "nombre" ||
+      h === "name" ||
+      h === "producto" ||
+      h.includes("nombre") ||
+      h.includes("producto") ||
+      h.includes("articulo")
+  )
+  const looksLikeResumen =
+    normalized.includes("metrica") ||
+    (normalized.includes("valor") && !hasName)
+  return hasName && !looksLikeResumen
+}
+
 export async function parseImportFile(file: File): Promise<ParsedImportSheet> {
   const name = file.name.toLowerCase()
   if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
     const XLSX = await import("xlsx")
     const buf = await file.arrayBuffer()
     const wb = XLSX.read(buf, { type: "array" })
-    const sheetName = wb.SheetNames[0]
-    if (!sheetName) {
+    if (!wb.SheetNames.length) {
       return { items: [], headers: [], warnings: ["El Excel no tiene hojas"], skippedEmptyRows: 0 }
     }
-    const sheet = wb.Sheets[sheetName]
-    const aoa = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
-      header: 1,
-      defval: "",
-      raw: false,
-    }) as unknown[][]
-    if (!aoa.length) {
-      return { items: [], headers: [], warnings: ["Hoja vacía"], skippedEmptyRows: 0 }
+
+    const warnings: string[] = []
+    const allItems: ProductImportItem[] = []
+    let headersOut: string[] = []
+    let skippedEmptyRows = 0
+    let usedSheets = 0
+
+    // Preferir hojas de productos; si ninguna califica, usar la primera
+    const candidates: { sheetName: string; headers: string[]; rows: unknown[][] }[] = []
+    for (const sheetName of wb.SheetNames) {
+      const sheet = wb.Sheets[sheetName]
+      const aoa = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
+        header: 1,
+        defval: "",
+        raw: false,
+      }) as unknown[][]
+      if (!aoa.length) continue
+      const headers = (aoa[0] || []).map((c) => String(c ?? "").trim())
+      const rows = aoa.slice(1)
+      candidates.push({ sheetName, headers, rows })
     }
-    const headers = (aoa[0] || []).map((c) => String(c ?? "").trim())
-    const rows = aoa.slice(1)
-    const parsed = rowsToItems(headers, rows)
-    if (wb.SheetNames.length > 1) {
-      parsed.warnings.push(`Se importó solo la primera hoja: "${sheetName}"`)
+
+    const productSheets = candidates.filter((c) => sheetLooksLikeProductImport(c.headers))
+    const toRead = productSheets.length > 0 ? productSheets : candidates.slice(0, 1)
+
+    // Si hay varias hojas de productos (p.ej. gigarro + medicamentos), unirlas todas
+    // salvo que existan "productos" / "todos" / "importar*" — en ese caso usar solo esas
+    // para no duplicar con hojas por fuente.
+    const preferredNames = new Set(
+      ["productos", "todos", "importar", "importar_con_precio", "importar_sin_precio"].map((s) =>
+        s.toLowerCase()
+      )
+    )
+    const preferred = toRead.filter((c) => preferredNames.has(c.sheetName.trim().toLowerCase()))
+    const sheetsToParse = preferred.length > 0 ? preferred : toRead
+
+    for (const { sheetName, headers, rows } of sheetsToParse) {
+      const parsed = rowsToItems(headers, rows)
+      if (!headersOut.length) headersOut = parsed.headers
+      allItems.push(...parsed.items)
+      skippedEmptyRows += parsed.skippedEmptyRows
+      warnings.push(...parsed.warnings.map((w) => `[${sheetName}] ${w}`))
+      usedSheets += 1
+      warnings.push(`Hoja leída: "${sheetName}" (${parsed.items.length} filas)`)
     }
-    return parsed
+
+    if (wb.SheetNames.length > usedSheets) {
+      warnings.push(
+        `Libro con ${wb.SheetNames.length} hojas; se usaron ${usedSheets} con datos de productos.`
+      )
+    }
+
+    return {
+      items: allItems,
+      headers: headersOut,
+      warnings,
+      skippedEmptyRows,
+    }
   }
 
   const text = await file.text()
