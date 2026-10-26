@@ -163,7 +163,14 @@ export const MENU_GROUPS: MenuGroup[] = [
         label: "Pedidos", 
         icon: ClipboardList, 
         href: "/pedidos",
-        requiredRoles: ['gerencia', 'ventas', 'admin']
+        requiredRoles: ['gerencia', 'ventas', 'admin', 'logistica']
+      },
+      {
+        id: "reparto",
+        label: "Reparto",
+        icon: Truck,
+        href: "/reparto",
+        requiredRoles: ['gerencia', 'ventas', 'admin', 'logistica']
       },
       { 
         id: "presupuestos", 

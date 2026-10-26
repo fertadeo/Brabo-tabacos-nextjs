@@ -4440,9 +4440,11 @@ export interface Order {
   client_id: number;
   client_name?: string;
   client_email?: string;
+  client_phone?: string;
   client_code?: string;
   order_date: string;
   delivery_date?: string;
+  notes?: string;
   status: 'pendiente_preparacion' | 'listo_despacho' | 'pagado' | 'aprobado' | 'en_proceso' | 'completado' | 'cancelado' | 'pendiente' | 'atrasado' | 'cancelled';
   total_amount: number | string;
   items_count?: number;
@@ -4939,6 +4941,9 @@ export async function getOrders(params?: {
   remito_status?: 'sin_remito' | 'remito_generado' | 'remito_despachado' | 'remito_entregado';
   date_from?: string; // ISO 8601 format
   date_to?: string; // ISO 8601 format
+  delivery_date?: string;
+  delivery_date_from?: string;
+  delivery_date_to?: string;
   stock_reserved?: boolean;
   has_remito?: boolean;
 }): Promise<{
@@ -4989,6 +4994,15 @@ export async function getOrders(params?: {
     if (params?.date_to && params.date_to.trim()) {
       queryParams.append('date_to', params.date_to);
     }
+    if (params?.delivery_date && params.delivery_date.trim()) {
+      queryParams.append('delivery_date', params.delivery_date.trim());
+    }
+    if (params?.delivery_date_from && params.delivery_date_from.trim()) {
+      queryParams.append('delivery_date_from', params.delivery_date_from.trim());
+    }
+    if (params?.delivery_date_to && params.delivery_date_to.trim()) {
+      queryParams.append('delivery_date_to', params.delivery_date_to.trim());
+    }
     if (params?.stock_reserved !== undefined) {
       queryParams.append('stock_reserved', params.stock_reserved.toString());
     }
@@ -4999,27 +5013,12 @@ export async function getOrders(params?: {
     const url = `${getApiUrl()}orders${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const token = getAuthToken();
     
-    // Validar que el token existe antes de hacer la petición
     if (!token) {
       console.error('❌ [ORDERS] No hay token de autenticación disponible');
       throw new Error('No hay token de autenticación. Por favor, inicia sesión nuevamente.');
     }
-    
-    // Obtener headers con API Key si está disponible, sino usar Bearer token
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    
-    if (typeof window !== 'undefined') {
-      const apiKey = localStorage.getItem('apiKey');
-      if (apiKey) {
-        headers['x-api-key'] = apiKey;
-      } else {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-    } else {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+
+    const headers = getAuthHeaders();
     
     console.log('📡 [ORDERS] Obteniendo pedidos:', {
       url,
