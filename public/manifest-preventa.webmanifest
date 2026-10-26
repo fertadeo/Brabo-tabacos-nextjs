@@ -1,0 +1,26 @@
+{
+  "name": "Brabo Preventa",
+  "short_name": "Preventa",
+  "description": "Toma de pedidos en calle para repartidores Brabo Tabacos",
+  "start_url": "/preventa",
+  "scope": "/preventa",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "es-AR",
+  "icons": [
+    {
+      "src": "/images/brabo-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/brabo-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

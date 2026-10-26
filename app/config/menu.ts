@@ -151,6 +151,20 @@ export const MENU_GROUPS: MenuGroup[] = [
         href: "/punto-venta",
         requiredRoles: ['gerencia', 'ventas', 'admin']
       },
+      {
+        id: "preventa",
+        label: "Preventa calle",
+        icon: Truck,
+        href: "/preventa",
+        requiredRoles: ['gerencia', 'ventas', 'admin', 'logistica']
+      },
+      {
+        id: "pedidos-calle",
+        label: "Pedidos de calle",
+        icon: ClipboardList,
+        href: "/pedidos?canal=preventa",
+        requiredRoles: ['gerencia', 'ventas', 'admin', 'logistica']
+      },
       { 
         id: "clientes", 
         label: "Clientes", 

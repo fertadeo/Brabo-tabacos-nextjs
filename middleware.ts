@@ -9,6 +9,7 @@ const protectedRoutes = [
   '/compras',
   '/produccion',
   '/pedidos',
+  '/preventa',
   '/presupuestos',
   '/tienda',
   '/personal',

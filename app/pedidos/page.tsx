@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { ERPLayout } from "@/components/erp-layout"
 import { Protected } from "@/components/protected"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,7 +12,8 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { NewOrderModal } from "@/components/new-order-modal"
-import { ClipboardList, Search, Plus, Clock, CheckCircle, AlertTriangle, Filter, Download, Eye, RefreshCw } from "lucide-react"
+import { ClipboardList, Search, Plus, Clock, CheckCircle, AlertTriangle, Filter, Download, Eye, RefreshCw, Truck } from "lucide-react"
+import { getOrderChannelLabel } from "@/lib/sales-channel"
 import { 
   getOrders, 
   getOrderStats, 
@@ -93,21 +96,9 @@ const getPriorityBadgeVariant = (priority?: string) => {
   }
 }
 
-const getSalesChannelLabel = (channel?: string) => {
-  const channelMap: Record<string, string> = {
-    "woocommerce": "WooCommerce",
-    "local": "Venta en Local",
-    "woocommerce_minorista": "WooCommerce", // Compatibilidad con datos antiguos
-    "sistema_mf": "Venta en Local",
-    "sistema_principal": "Venta en Local",
-    "manual": "Venta en Local",
-    "mercadolibre": "MercadoLibre",
-    "otro": "Otro"
-  }
-  return channelMap[channel || ""] || "-"
-}
-
 export default function PedidosPage() {
+  const searchParams = useSearchParams()
+  const canalParam = searchParams.get("canal")
   const [orders, setOrders] = useState<Order[]>([])
   const [stats, setStats] = useState<OrderStats | null>(null)
   const [allOrders, setAllOrders] = useState<Order[]>([]) // Almacenar todos los pedidos para calcular stats
@@ -117,9 +108,20 @@ export default function PedidosPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [channelFilter, setChannelFilter] = useState<string>(() =>
+    canalParam === "preventa" || canalParam === "local" || canalParam === "woocommerce"
+      ? canalParam
+      : "all"
+  )
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalOrders, setTotalOrders] = useState(0)
+
+  useEffect(() => {
+    if (canalParam === "preventa" || canalParam === "local" || canalParam === "woocommerce") {
+      setChannelFilter(canalParam)
+    }
+  }, [canalParam])
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -129,11 +131,11 @@ export default function PedidosPage() {
   // Cargar pedidos cuando cambien los filtros
   useEffect(() => {
     setCurrentPage(1) // Resetear a página 1 cuando cambian los filtros
-  }, [searchTerm, statusFilter])
+  }, [searchTerm, statusFilter, channelFilter])
 
   useEffect(() => {
     loadOrders()
-  }, [searchTerm, statusFilter, currentPage])
+  }, [searchTerm, statusFilter, channelFilter, currentPage])
 
   const loadData = async () => {
     setIsLoading(true)
@@ -159,6 +161,7 @@ export default function PedidosPage() {
 
       if (searchTerm) params.search = searchTerm
       if (statusFilter !== "all") params.status = statusFilter
+      if (channelFilter !== "all") params.canal_venta = channelFilter
 
       const response = await getOrders(params)
       
@@ -271,16 +274,28 @@ export default function PedidosPage() {
 
 
   return (
-    <Protected requiredRoles={['gerencia', 'ventas', 'admin']}>
+    <Protected requiredRoles={['gerencia', 'ventas', 'admin', 'logistica']}>
       <ERPLayout activeItem="pedidos">
         <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Gestión de Pedidos</h1>
-            <p className="text-muted-foreground">Administra y rastrea todos los pedidos de clientes</p>
+            <h1 className="text-3xl font-bold">
+              {channelFilter === "preventa" ? "Pedidos de preventa (calle)" : "Gestión de Pedidos"}
+            </h1>
+            <p className="text-muted-foreground">
+              {channelFilter === "preventa"
+                ? "Pedidos tomados por el repartidor en la calle"
+                : "Administrá pedidos de local, preventa calle y WooCommerce"}
+            </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/preventa">
+                <Truck className="h-4 w-4 mr-2" />
+                App preventa
+              </Link>
+            </Button>
             <Button variant="outline">
               <Download className="h-4 w-4 mr-2" />
               Exportar
@@ -359,8 +374,8 @@ export default function PedidosPage() {
             <CardDescription>Todos los pedidos ordenados por fecha</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-4 mb-4">
-              <div className="flex-1">
+            <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:flex-wrap">
+              <div className="flex-1 min-w-[200px]">
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input 
@@ -384,6 +399,17 @@ export default function PedidosPage() {
                   <SelectItem value="en_proceso">En Proceso</SelectItem>
                   <SelectItem value="completado">Completado</SelectItem>
                   <SelectItem value="cancelado">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={channelFilter} onValueChange={setChannelFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Canal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los canales</SelectItem>
+                  <SelectItem value="local">Venta en local</SelectItem>
+                  <SelectItem value="preventa">Preventa calle</SelectItem>
+                  <SelectItem value="woocommerce">WooCommerce</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline" onClick={loadData} disabled={isLoading}>
@@ -453,8 +479,10 @@ export default function PedidosPage() {
                           })()}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">
-                            {getSalesChannelLabel(order.canal_venta || order.sales_channel)}
+                          <Badge
+                            variant={order.canal_venta === "preventa" ? "default" : "outline"}
+                          >
+                            {getOrderChannelLabel(order.canal_venta || order.sales_channel)}
                           </Badge>
                         </TableCell>
                         <TableCell>{order.items_count || 0}</TableCell>
