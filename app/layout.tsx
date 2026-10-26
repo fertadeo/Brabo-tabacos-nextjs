@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
+import { Toaster } from "sonner"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/AuthContext"
@@ -39,6 +40,7 @@ html {
           <AuthProvider>
             <ToastProvider>
               {children}
+              <Toaster theme="dark" position="top-right" richColors closeButton />
             </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
