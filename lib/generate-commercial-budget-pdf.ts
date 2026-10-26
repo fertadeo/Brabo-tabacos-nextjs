@@ -11,7 +11,7 @@ import {
 } from "@/lib/document-cliente-pdf"
 
 const LOGO_PATH =
-  process.env.NEXT_PUBLIC_LOGO_MARK_PATH?.trim() || "/images/placeholder-logo.png"
+  process.env.NEXT_PUBLIC_LOGO_MARK_PATH?.trim() || "/images/brabo-logo.png"
 
 const BRAND_BLUE: [number, number, number] = [29, 78, 158]
 const BRAND_BLUE_DARK: [number, number, number] = [18, 52, 112]

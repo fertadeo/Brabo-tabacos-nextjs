@@ -38,7 +38,10 @@ interface FormData {
   name: string
   description: string
   category_id: string
+  /** Venta en local (lista default / products.price) */
   price: string
+  price_mayorista: string
+  price_revendedor: string
   stock: string
   min_stock: string
   max_stock: string
@@ -91,6 +94,8 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
     description: "",
     category_id: "",
     price: "",
+    price_mayorista: "",
+    price_revendedor: "",
     stock: "0",
     min_stock: "0",
     max_stock: "1000",
@@ -136,6 +141,8 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
     if (formData.description.trim() !== "") return true
     if (formData.category_id !== "") return true
     if (formData.price.trim() !== "") return true
+    if (formData.price_mayorista.trim() !== "") return true
+    if (formData.price_revendedor.trim() !== "") return true
     if (formData.stock !== "0") return true
     if (formData.min_stock !== "0") return true
     if (formData.max_stock !== "1000") return true
@@ -169,9 +176,20 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
       return false
     }
 
-    // Validar precio (requerido, debe ser numérico y mayor a 0)
-    if (!formData.price || isNaN(parseFloat(formData.price)) || parseFloat(formData.price) <= 0) {
-      setError("El precio debe ser un número mayor a 0")
+    // Validar precios de las 3 listas (requeridos, > 0)
+    const local = parseFloat(formData.price)
+    const mayorista = parseFloat(formData.price_mayorista)
+    const revendedor = parseFloat(formData.price_revendedor)
+    if (!formData.price || isNaN(local) || local <= 0) {
+      setError("El precio de Venta en local debe ser un número mayor a 0")
+      return false
+    }
+    if (!formData.price_mayorista || isNaN(mayorista) || mayorista <= 0) {
+      setError("El precio Mayorista debe ser un número mayor a 0")
+      return false
+    }
+    if (!formData.price_revendedor || isNaN(revendedor) || revendedor <= 0) {
+      setError("El precio Revendedor debe ser un número mayor a 0")
       return false
     }
 
@@ -456,10 +474,18 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
         const widthVal = formData.width.trim() === "" ? null : parseFloat(formData.width)
         const heightVal = formData.height.trim() === "" ? null : parseFloat(formData.height)
 
+        const priceLocal = parseFloat(formData.price)
+        const priceMayorista = parseFloat(formData.price_mayorista)
+        const priceRevendedor = parseFloat(formData.price_revendedor)
         const productData: CreateProductData = {
           code: formData.code.trim(),
           name: formData.name.trim(),
-          price: parseFloat(formData.price),
+          price: priceLocal,
+          prices: {
+            venta_local: priceLocal,
+            mayorista: priceMayorista,
+            revendedor: priceRevendedor,
+          },
           description: formData.description.trim() ? formData.description.trim() : null,
           category_id: formData.category_id ? parseInt(formData.category_id) : null,
           images: imageUrls.length > 0 ? imageUrls : null,
@@ -522,6 +548,8 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
       description: "",
       category_id: "",
       price: "",
+      price_mayorista: "",
+      price_revendedor: "",
       stock: "0",
       min_stock: "0",
       max_stock: "1000",
@@ -595,6 +623,10 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
 
       let price = parseFloat(formData.price)
       if (isNaN(price) || price <= 0) price = 0.01
+      let priceMayorista = parseFloat(formData.price_mayorista)
+      if (isNaN(priceMayorista) || priceMayorista <= 0) priceMayorista = price
+      let priceRevendedor = parseFloat(formData.price_revendedor)
+      if (isNaN(priceRevendedor) || priceRevendedor <= 0) priceRevendedor = price
 
       const validImages = images.filter(
         (img) =>
@@ -623,6 +655,11 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
         code,
         name,
         price,
+        prices: {
+          venta_local: price,
+          mayorista: priceMayorista,
+          revendedor: priceRevendedor,
+        },
         description: formData.description.trim() ? formData.description.trim() : null,
         category_id: formData.category_id ? parseInt(formData.category_id) : null,
         images: imageUrls.length > 0 ? imageUrls : null,
@@ -877,25 +914,74 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
 
                 <div className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="price" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Precio *
-                    </Label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                      <Input
-                        id="price"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.price}
-                        onChange={(e) => handleInputChange('price', e.target.value)}
-                        onFocus={handleNumericFocus}
-                        placeholder="0.00"
-                        className="h-11 pl-9 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:border-turquoise-500 focus:ring-turquoise-500"
-                        required
-                      />
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Listas de precio *
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Precios finales con IVA incluido.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="price" className="text-xs text-slate-600 dark:text-slate-400">
+                          Venta en local
+                        </Label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
+                          <Input
+                            id="price"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={formData.price}
+                            onChange={(e) => handleInputChange("price", e.target.value)}
+                            onFocus={handleNumericFocus}
+                            placeholder="0.00"
+                            className="h-11 pl-9 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:border-turquoise-500 focus:ring-turquoise-500"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="price_mayorista" className="text-xs text-slate-600 dark:text-slate-400">
+                          Mayorista
+                        </Label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
+                          <Input
+                            id="price_mayorista"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={formData.price_mayorista}
+                            onChange={(e) => handleInputChange("price_mayorista", e.target.value)}
+                            onFocus={handleNumericFocus}
+                            placeholder="0.00"
+                            className="h-11 pl-9 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:border-turquoise-500 focus:ring-turquoise-500"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="price_revendedor" className="text-xs text-slate-600 dark:text-slate-400">
+                          Revendedor
+                        </Label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
+                          <Input
+                            id="price_revendedor"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={formData.price_revendedor}
+                            onChange={(e) => handleInputChange("price_revendedor", e.target.value)}
+                            onFocus={handleNumericFocus}
+                            placeholder="0.00"
+                            className="h-11 pl-9 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:border-turquoise-500 focus:ring-turquoise-500"
+                            required
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Precio final con IVA incluido.</p>
                   </div>
 
                   <div className="space-y-2">

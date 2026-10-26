@@ -75,6 +75,19 @@ import {
   recalcUsdCartLine,
   type SaleCurrency as PosSaleCurrency,
 } from "@/lib/pos-usd"
+import {
+  DEFAULT_PRICE_LIST_SLUG,
+  PRICE_LIST_OPTIONS,
+  resolveProductListPrice,
+  type PriceListSlug,
+} from "@/lib/price-lists"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const PAYMENT_LABELS: Record<SalePaymentMethod, string> = {
   efectivo: "Efectivo",
@@ -123,6 +136,7 @@ export default function PuntoVentaPage() {
   const [productsModalFilter, setProductsModalFilter] = useState<"all" | "active" | "inactive" | "out_of_stock">("all")
   const [addingProductId, setAddingProductId] = useState<number | null>(null)
   const [addedProductId, setAddedProductId] = useState<number | null>(null)
+  const [priceListSlug, setPriceListSlug] = useState<PriceListSlug>(DEFAULT_PRICE_LIST_SLUG)
   const [saleCurrency, setSaleCurrency] = useState<SaleCurrency>("ARS")
   const [exchangeRate, setExchangeRate] = useState<number | null>(null)
   const [exchangeRateInput, setExchangeRateInput] = useState("")
@@ -172,12 +186,12 @@ export default function PuntoVentaPage() {
       const rate = data.current_rate
       setExchangeRate(rate)
       setExchangeRateInput(String(rate))
-      setDollarRateLabel(data.quote?.dollar_label ?? "DÃ³lar del dÃ­a")
+      setDollarRateLabel(data.quote?.dollar_label ?? "Dólar del día")
       if (saleCurrency === "USD" && cart.length > 0) {
         setCart((prev) => prev.map((line) => recalcUsdCartLine(line, rate)))
       }
     } catch (e) {
-      setDollarRateError(e instanceof Error ? e.message : "No se pudo cargar la cotizaciÃ³n")
+      setDollarRateError(e instanceof Error ? e.message : "No se pudo cargar la cotización")
     } finally {
       setDollarRateLoading(false)
     }
@@ -313,10 +327,32 @@ export default function PuntoVentaPage() {
     }
   }
 
+  function catalogArsPrice(product: Product): number {
+    return resolveProductListPrice(product, priceListSlug)
+  }
+
+  function applyPriceListToCart(nextSlug: PriceListSlug) {
+    setPriceListSlug(nextSlug)
+    setCart((prev) =>
+      prev.map((line) => {
+        if (line.kind !== "catalog") return line
+        const arsPrice = resolveProductListPrice(line.product, nextSlug)
+        if (saleCurrency === "USD" && exchangeRate && exchangeRate > 0) {
+          return {
+            ...line,
+            unit_price: arsToUsd(arsPrice, exchangeRate),
+            ars_unit_price: arsPrice,
+          }
+        }
+        return { ...line, unit_price: arsPrice }
+      })
+    )
+  }
+
   function addToCartInternal(product: Product, qty = 1) {
     if (!canAddPosCatalogProduct(product)) return
     const maxQty = posCatalogMaxQuantity(product)
-    const arsPrice = product.price
+    const arsPrice = catalogArsPrice(product)
     const unitPrice =
       saleCurrency === "USD" && exchangeRate && exchangeRate > 0
         ? arsToUsd(arsPrice, exchangeRate)
@@ -430,12 +466,12 @@ export default function PuntoVentaPage() {
 
   async function handleCobrar() {
     if (cart.length === 0) {
-      setError("AgregÃ¡ al menos un Ã­tem al carrito")
+      setError("Agregá al menos un ítem al carrito")
       return
     }
     if (saleCurrency === "USD") {
       if (!exchangeRate || exchangeRate <= 0) {
-        setError("IndicÃ¡ una cotizaciÃ³n USD/ARS vÃ¡lida para cobrar en dÃ³lares")
+        setError("Indicá una cotización USD/ARS válida para cobrar en dólares")
         return
       }
     }
@@ -443,7 +479,7 @@ export default function PuntoVentaPage() {
       (i) => i.kind === "custom" && !i.description.trim()
     )
     if (invalidCustom) {
-      setError("Hay un Ã­tem manual sin descripciÃ³n")
+      setError("Hay un ítem manual sin descripción")
       return
     }
     if (paymentMethod === "mixto" && !mixtoValid) {
@@ -526,8 +562,8 @@ export default function PuntoVentaPage() {
               </h1>
               <p className="text-muted-foreground">
                 {isUsdSale(saleCurrency)
-                  ? "Cobro y facturaciÃ³n en dÃ³lares (USD â†’ DOL en ARCA)"
-                  : "Ventas en local fÃ­sico"}
+                  ? "Cobro y facturación en dólares (USD ? DOL en ARCA)"
+                  : "Ventas en local físico"}
               </p>
             </div>
           </div>
@@ -546,8 +582,8 @@ export default function PuntoVentaPage() {
               <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 pt-4">
                 <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
                 <p className="text-sm flex-1">
-                  Para registrar ventas tenÃ©s que estar logueado o configurar la API Key en ConfiguraciÃ³n.
-                  Sin autenticaciÃ³n no se puede enviar la venta al servidor.
+                  Para registrar ventas tenés que estar logueado o configurar la API Key en Configuración.
+                  Sin autenticación no se puede enviar la venta al servidor.
                 </p>
                 <Button asChild variant="outline" size="sm" className="shrink-0 border-amber-600 text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/50">
                   <Link href="/configuracion?tab=pos">Configurar API Key</Link>
@@ -557,7 +593,7 @@ export default function PuntoVentaPage() {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Columna izquierda: bÃºsqueda + productos + carrito */}
+            {/* Columna izquierda: búsqueda + productos + carrito */}
             <div className="lg:col-span-2 space-y-4">
               <Card>
                 <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2 space-y-0">
@@ -573,7 +609,27 @@ export default function PuntoVentaPage() {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <div className="flex items-center gap-1.5">
+                      <Label htmlFor="pos-price-list" className="text-xs text-muted-foreground whitespace-nowrap">
+                        Lista
+                      </Label>
+                      <Select
+                        value={priceListSlug}
+                        onValueChange={(v) => applyPriceListToCart(v as PriceListSlug)}
+                      >
+                        <SelectTrigger id="pos-price-list" className="h-8 w-[160px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRICE_LIST_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.slug} value={opt.slug}>
+                              {opt.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <Button
                       variant={productsViewMode === "list" ? "secondary" : "ghost"}
                       size="icon"
@@ -588,7 +644,7 @@ export default function PuntoVentaPage() {
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => setProductsViewMode("grid")}
-                      title="Vista cuadrÃ­cula"
+                      title="Vista cuadrícula"
                     >
                       <LayoutGrid className="h-4 w-4" />
                     </Button>
@@ -605,7 +661,7 @@ export default function PuntoVentaPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Input
-                    placeholder="Buscar por nombre, cÃ³digo o categorÃ­a..."
+                    placeholder="Buscar por nombre, código o categoría..."
                     value={searchProduct}
                     onChange={(e) => setSearchProduct(e.target.value)}
                     className="max-w-md"
@@ -659,8 +715,8 @@ export default function PuntoVentaPage() {
                                 )}
                               </div>
                               <p className="text-xs text-muted-foreground">
-                                ${Number(p.price).toLocaleString("es-AR", FORMAT_NUM)}
-                                {isPosBackorderOnly(p) ? " Â· Sin stock" : ` Â· Stock ${p.stock}`}
+                                ${Number(catalogArsPrice(p)).toLocaleString("es-AR", FORMAT_NUM)}
+                                {isPosBackorderOnly(p) ? " · Sin stock" : ` · Stock ${p.stock}`}
                               </p>
                             </div>
                             <Button
@@ -718,8 +774,8 @@ export default function PuntoVentaPage() {
                                   )}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                  ${Number(p.price).toLocaleString("es-AR", FORMAT_NUM)}
-                                  {isPosBackorderOnly(p) ? " Â· Sin stock" : ` Â· Stock ${p.stock}`}
+                                  ${Number(catalogArsPrice(p)).toLocaleString("es-AR", FORMAT_NUM)}
+                                  {isPosBackorderOnly(p) ? " · Sin stock" : ` · Stock ${p.stock}`}
                                 </p>
                               </div>
                             </div>
@@ -781,7 +837,7 @@ export default function PuntoVentaPage() {
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => setCartViewMode("grid")}
-                          title="Vista cuadrÃ­cula"
+                          title="Vista cuadrícula"
                         >
                           <LayoutGrid className="h-4 w-4" />
                         </Button>
@@ -803,7 +859,7 @@ export default function PuntoVentaPage() {
                 </CardHeader>
                 <CardContent>
                   {cart.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4">El carrito estÃ¡ vacÃ­o</p>
+                    <p className="text-sm text-muted-foreground py-4">El carrito está vacío</p>
                   ) : cartViewMode === "list" ? (
                     <div className="space-y-2 max-h-[220px] overflow-y-auto">
                       {cart.map((item) => (
@@ -871,8 +927,8 @@ export default function PuntoVentaPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-xs text-muted-foreground">
-                    ElegÃ­ la moneda <strong>antes</strong> de armar el carrito. En USD, los precios se convierten y la
-                    factura se emite en dÃ³lares (DOL).
+                    Elegí la moneda <strong>antes</strong> de armar el carrito. En USD, los precios se convierten y la
+                    factura se emite en dólares (DOL).
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     {(["ARS", "USD"] as const).map((cur) => (
@@ -884,7 +940,7 @@ export default function PuntoVentaPage() {
                         className={saleCurrency === cur && cur === "USD" ? "bg-amber-600 hover:bg-amber-600" : ""}
                         onClick={() => handleSaleCurrencyChange(cur)}
                       >
-                        {cur === "ARS" ? "Pesos (ARS)" : "DÃ³lares (USD)"}
+                        {cur === "ARS" ? "Pesos (ARS)" : "Dólares (USD)"}
                       </Button>
                     ))}
                   </div>
@@ -892,7 +948,7 @@ export default function PuntoVentaPage() {
                     <div className="space-y-2 rounded-md border border-amber-300/60 bg-background/80 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <Label htmlFor="pos-exchange-rate" className="text-xs font-medium">
-                          CotizaciÃ³n USD/ARS (obligatoria)
+                          Cotización USD/ARS (obligatoria)
                         </Label>
                         <Button
                           type="button"
@@ -903,7 +959,7 @@ export default function PuntoVentaPage() {
                           disabled={dollarRateLoading}
                         >
                           <RefreshCw className={`h-3.5 w-3.5 mr-1 ${dollarRateLoading ? "animate-spin" : ""}`} />
-                          Sugerir del dÃ­a
+                          Sugerir del día
                         </Button>
                       </div>
                       <Input
@@ -918,7 +974,7 @@ export default function PuntoVentaPage() {
                       {dollarRateLabel ? (
                         <p className="text-xs text-muted-foreground">
                           Sugerencia: {dollarRateLabel}
-                          {exchangeRate ? ` Â· ${exchangeRate.toLocaleString("es-AR")} ARS/USD` : ""}
+                          {exchangeRate ? ` · ${exchangeRate.toLocaleString("es-AR")} ARS/USD` : ""}
                         </p>
                       ) : null}
                       {dollarRateError ? (
@@ -968,12 +1024,12 @@ export default function PuntoVentaPage() {
                       setClientSearch("")
                       setClients([])
                     }}
-                    placeholder="Buscar cliente por nombre, CUIT, cÃ³digo o direcciÃ³nâ€¦"
+                    placeholder="Buscar cliente por nombre, CUIT, código o dirección…"
                     clearLabel="Consumidor final"
                   />
                   {requiresZeroItemIva ? (
                     <p className="text-xs text-amber-700 dark:text-amber-400">
-                      Factura C: los Ã­tems deben ir al 0% (exento); ARCA no admite IVA discriminado en este comprobante.
+                      Factura C: los ítems deben ir al 0% (exento); ARCA no admite IVA discriminado en este comprobante.
                     </p>
                   ) : null}
                 </CardContent>
@@ -981,7 +1037,7 @@ export default function PuntoVentaPage() {
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">MÃ©todo de pago</CardTitle>
+                  <CardTitle className="text-base">Método de pago</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-2 gap-2">
@@ -1052,7 +1108,7 @@ export default function PuntoVentaPage() {
                       </div>
                       {!mixtoValid && total > 0 && (
                         <p className="text-xs text-red-600">
-                          Suma: {formatPosMoney(mixtoSum)} â€” Total: {formatPosMoney(total)}
+                          Suma: {formatPosMoney(mixtoSum)} — Total: {formatPosMoney(total)}
                         </p>
                       )}
                     </div>
@@ -1064,7 +1120,7 @@ export default function PuntoVentaPage() {
                 <CardContent className="pt-4 space-y-3">
                   <Label>Notas (opcional)</Label>
                   <Textarea
-                    placeholder="MÃ¡x. 1000 caracteres"
+                    placeholder="Máx. 1000 caracteres"
                     value={notes}
                     maxLength={1000}
                     onChange={(e) => setNotes(e.target.value)}
@@ -1123,7 +1179,7 @@ export default function PuntoVentaPage() {
                     onClick={handleCobrar}
                     disabled={cart.length === 0 || submitting || (paymentMethod === "mixto" && !mixtoValid) || apiKeyMissing}
                   >
-                    {submitting ? "Procesando..." : isUsdSale(saleCurrency) ? "Cobrar en dÃ³lares (USD)" : "Cobrar"}
+                    {submitting ? "Procesando..." : isUsdSale(saleCurrency) ? "Cobrar en dólares (USD)" : "Cobrar"}
                   </Button>
                 </CardContent>
               </Card>
@@ -1131,13 +1187,13 @@ export default function PuntoVentaPage() {
             </div>
           </div>
 
-          {/* Modal vista ampliada â€” Productos */}
+          {/* Modal vista ampliada — Productos */}
           <Dialog open={openProductsModal} onOpenChange={setOpenProductsModal}>
             <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col gap-4 p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Search className="h-5 w-5" />
-                  Productos â€” Vista ampliada
+                  Productos — Vista ampliada
                 </DialogTitle>
                 <p className="text-sm text-muted-foreground">
                   Mostrando {productsModalList.length} producto{productsModalList.length !== 1 ? "s" : ""}.
@@ -1145,7 +1201,7 @@ export default function PuntoVentaPage() {
               </DialogHeader>
               <div className="flex flex-col gap-3 flex-1 min-h-0">
                 <Input
-                  placeholder="Buscar por nombre, cÃ³digo o categorÃ­a..."
+                  placeholder="Buscar por nombre, código o categoría..."
                   value={searchProduct}
                   onChange={(e) => setSearchProduct(e.target.value)}
                   className="max-w-md"
@@ -1179,12 +1235,12 @@ export default function PuntoVentaPage() {
                       <thead className="sticky top-0 z-10">
                         <tr className="bg-slate-200 dark:bg-slate-800 [&_th]:bg-slate-200 [&_th]:dark:bg-slate-800 [&_th]:border-b [&_th]:border-border">
                           <th className="text-left p-2 w-14">Imagen</th>
-                          <th className="text-left p-2">CÃ³digo</th>
+                          <th className="text-left p-2">Código</th>
                           <th className="text-left p-2">Nombre</th>
-                          <th className="text-left p-2">CategorÃ­a</th>
+                          <th className="text-left p-2">Categoría</th>
                           <th className="text-right p-2">Precio</th>
                           <th className="text-right p-2">Stock</th>
-                          <th className="text-right p-2 w-24">AcciÃ³n</th>
+                          <th className="text-right p-2 w-24">Acción</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1201,7 +1257,7 @@ export default function PuntoVentaPage() {
                                 />
                               </div>
                             </td>
-                            <td className="p-2 font-mono text-xs">{p.code ?? "â€”"}</td>
+                            <td className="p-2 font-mono text-xs">{p.code ?? "—"}</td>
                             <td className="p-2">
                               <span className="font-medium">{p.name}</span>
                               {isPosBackorderOnly(p) && (
@@ -1215,8 +1271,8 @@ export default function PuntoVentaPage() {
                                 </Badge>
                               )}
                             </td>
-                            <td className="p-2 text-muted-foreground">{p.category_name ?? "â€”"}</td>
-                            <td className="p-2 text-right">${Number(p.price).toLocaleString("es-AR", FORMAT_NUM)}</td>
+                            <td className="p-2 text-muted-foreground">{p.category_name ?? "—"}</td>
+                            <td className="p-2 text-right">${Number(catalogArsPrice(p)).toLocaleString("es-AR", FORMAT_NUM)}</td>
                             <td className="p-2 text-right">{isPosBackorderOnly(p) ? "0 (encargo)" : p.stock}</td>
                             <td className="p-2 text-right">
                               <Button
@@ -1248,13 +1304,13 @@ export default function PuntoVentaPage() {
             </DialogContent>
           </Dialog>
 
-          {/* Modal vista ampliada â€” Carrito */}
+          {/* Modal vista ampliada — Carrito */}
           <Dialog open={openCartModal} onOpenChange={setOpenCartModal}>
             <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col gap-4 p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Receipt className="h-5 w-5" />
-                  Carrito â€” Vista ampliada
+                  Carrito — Vista ampliada
                 </DialogTitle>
                 <p className="text-sm text-muted-foreground">
                   {cart.length === 0
@@ -1267,7 +1323,7 @@ export default function PuntoVentaPage() {
               </DialogHeader>
               <div className="flex flex-col gap-3 flex-1 min-h-0">
                 {cart.length === 0 ? (
-                  <p className="p-4 text-sm text-muted-foreground">El carrito estÃ¡ vacÃ­o</p>
+                  <p className="p-4 text-sm text-muted-foreground">El carrito está vacío</p>
                 ) : (
                   <>
                     <div className="border rounded-md overflow-auto flex-1 min-h-[280px]">
@@ -1331,11 +1387,11 @@ export default function PuntoVentaPage() {
                 </Button>
               }
             >
-              Este producto se encuentra con stock pero inactivo. ActivÃ¡lo desde la secciÃ³n de productos para poder venderlo.
+              Este producto se encuentra con stock pero inactivo. Activálo desde la sección de productos para poder venderlo.
             </Alert>
           )}
 
-          {/* Alert flotante â€” Venta registrada */}
+          {/* Alert flotante — Venta registrada */}
           {lastSale && (
             <Alert
               variant="success"
@@ -1375,18 +1431,18 @@ export default function PuntoVentaPage() {
                 {lastSale.currency === "USD" ? (
                   <div className="text-xs space-y-1 pt-1">
                     <p className="text-amber-800 dark:text-amber-300">
-                      FacturÃ¡ en <strong>FacturaciÃ³n</strong> con moneda DOL y TC{" "}
+                      Facturá en <strong>Facturación</strong> con moneda DOL y TC{" "}
                       {lastSale.exchange_rate
                         ? Number(lastSale.exchange_rate).toLocaleString("es-AR")
-                        : "â€”"}{" "}
+                        : "—"}{" "}
                       ARS/USD.
                     </p>
                     <Button variant="link" size="sm" className="h-auto p-0 text-xs" asChild>
-                      <Link href="/facturacion">Ir a facturaciÃ³n â†’</Link>
+                      <Link href="/facturacion">Ir a facturación ?</Link>
                     </Button>
                   </div>
                 ) : null}
-                <p>MÃ©todo: {PAYMENT_LABELS[lastSale.payment_method]}</p>
+                <p>Método: {PAYMENT_LABELS[lastSale.payment_method]}</p>
                 {lastSalePdfData?.clientName ? (
                   <p className="text-sm">
                     Cliente: <span className="font-medium">{lastSalePdfData.clientName}</span>
@@ -1395,7 +1451,7 @@ export default function PuntoVentaPage() {
                 {lastSalePdfData?.clientAddress || lastSale.client_address ? (
                   <p className="text-xs text-muted-foreground">
                     {lastSalePdfData?.clientAddress || lastSale.client_address}
-                    {lastSale.client_city ? ` Â· ${lastSale.client_city}` : ""}
+                    {lastSale.client_city ? ` · ${lastSale.client_city}` : ""}
                   </p>
                 ) : null}
               </div>

@@ -91,21 +91,21 @@ export const MENU_GROUPS: MenuGroup[] = [
     id: "inventario",
     title: "Inventario",
     icon: Package,
-    requiredRoles: ['gerencia', 'ventas', 'logistica', 'finanzas'],
+    requiredRoles: ['gerencia', 'ventas', 'logistica', 'finanzas', 'admin'],
     items: [
       { 
         id: "productos", 
         label: "Productos", 
         icon: Package, 
         href: "/productos",
-        requiredRoles: ['gerencia', 'ventas', 'logistica', 'finanzas']
+        requiredRoles: ['gerencia', 'ventas', 'logistica', 'finanzas', 'admin']
       },
       {
         id: "actualizacion-precios",
         label: "Actualización de precios",
         icon: BadgePercent,
         href: "/productos/actualizacion-precios",
-        requiredRoles: ['gerencia']
+        requiredRoles: ['gerencia', 'admin']
       },
       // { 
       //   id: "categorias", 

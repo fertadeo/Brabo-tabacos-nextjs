@@ -18,7 +18,7 @@ export default function ActualizacionPreciosPage() {
   }
 
   return (
-    <Protected requiredRoles={["gerencia"]}>
+    <Protected requiredRoles={["gerencia", "admin"]}>
       <ERPLayout activeItem="actualizacion-precios">
         <div className="space-y-4 sm:space-y-6 pb-2 sm:pb-0">
           <div className="flex flex-col gap-3 sm:gap-4">

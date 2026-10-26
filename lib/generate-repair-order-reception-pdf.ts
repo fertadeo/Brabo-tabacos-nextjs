@@ -13,7 +13,7 @@ import {
 } from "@/lib/document-cliente-pdf"
 
 const LOGO_PATH =
-  process.env.NEXT_PUBLIC_LOGO_MARK_PATH?.trim() || "/images/placeholder-logo.png"
+  process.env.NEXT_PUBLIC_LOGO_MARK_PATH?.trim() || "/images/brabo-logo.png"
 
 /** Azul corporativo del logo (~#1d4e9e) */
 const BRAND_BLUE: [number, number, number] = [29, 78, 158]

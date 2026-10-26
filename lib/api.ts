@@ -591,6 +591,23 @@ export interface ProductStatsResponse {
   timestamp: string;
 }
 
+/** Precios por lista (Brabo: venta_local, mayorista, revendedor). */
+export interface ProductPricesBySlug {
+  venta_local?: number
+  mayorista?: number
+  revendedor?: number
+  [slug: string]: number | undefined
+}
+
+export interface PriceList {
+  id: number
+  name: string
+  slug: string
+  is_default: boolean
+  sort_order: number
+  is_active: boolean
+}
+
 // Interfaces para productos
 export interface Product {
   id: number
@@ -600,6 +617,8 @@ export interface Product {
   category_id?: number
   category_name?: string
   price: number
+  /** Precios por lista; price suele coincidir con venta_local. */
+  prices?: ProductPricesBySlug
   stock: number
   min_stock: number
   max_stock: number
@@ -631,6 +650,7 @@ export interface CreateProductData {
   description?: string | null
   category_id?: number | null
   price: number
+  prices?: ProductPricesBySlug
   stock?: number
   min_stock?: number
   max_stock?: number
@@ -655,6 +675,7 @@ export interface UpdateProductData {
   description?: string | null
   category_id?: number | null
   price?: number
+  prices?: ProductPricesBySlug
   stock?: number
   min_stock?: number
   max_stock?: number
@@ -1850,6 +1871,24 @@ export async function getCategories(): Promise<Category[]> {
     })
     throw error
   }
+}
+
+/** GET /api/price-lists — listas de precio activas (JWT). */
+export async function getPriceLists(): Promise<PriceList[]> {
+  const apiUrl = getApiUrl()
+  const token = getAccessToken()
+  const response = await fetch(`${apiUrl}price-lists`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  const responseData: ApiResponse<PriceList[]> = await response.json()
+  if (!response.ok) {
+    throw new Error(responseData.message || `Error al obtener listas de precio: ${response.status}`)
+  }
+  return Array.isArray(responseData.data) ? responseData.data : []
 }
 
 export interface Category {

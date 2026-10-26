@@ -4,6 +4,7 @@
  */
 import jsPDF from "jspdf"
 import type { SaleResponseData, SalePaymentMethod } from "@/lib/api"
+import { LOGO_MARK_PATH } from "@/lib/brand"
 
 const PAYMENT_LABELS: Record<SalePaymentMethod, string> = {
   efectivo: "Efectivo",
@@ -37,7 +38,7 @@ export function generateSaleReceiptPdf(params: {
 
   try {
     const img = new window.Image()
-    img.src = "/images/Recurso-8@3x.png"
+    img.src = LOGO_MARK_PATH
     img.onload = () => {
       const logoWidth = 120
       const ratio = img.width ? img.height / img.width : 0

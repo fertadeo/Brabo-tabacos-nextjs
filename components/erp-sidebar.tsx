@@ -169,7 +169,7 @@ export function ERPSidebar({ activeItem, onItemClick }: ERPSidebarProps) {
                   )}
                 >
                   <Image
-                    src={process.env.NEXT_PUBLIC_LOGO_FULL_PATH?.trim() || "/images/placeholder-logo.png"}
+                    src={process.env.NEXT_PUBLIC_LOGO_FULL_PATH?.trim() || "/images/brabo-logo.png"}
                     alt={`${process.env.NEXT_PUBLIC_APP_NAME?.trim() || "Aurix Retail"}`}
                     fill
                     sizes="(max-width: 256px) 48px, 220px"

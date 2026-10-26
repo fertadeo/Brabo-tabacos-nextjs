@@ -289,7 +289,7 @@ export default function ProductosPage() {
   // Verificar si el usuario puede realizar acciones de administración
   const canManageProducts = isAdmin()
   const canLinkWooCommerce = hasAnyOfRoles(['gerencia', 'admin', 'superadmin'])
-  const canBatchPricing = hasAnyOfRoles(['gerencia'])
+  const canBatchPricing = hasAnyOfRoles(['gerencia', 'admin', 'superadmin'])
 
   const hasActiveFilters =
     filterCategory !== "all" || filterStatus !== "all" || filterStock !== "all" || filterDateModification !== "all"
@@ -327,7 +327,7 @@ export default function ProductosPage() {
   }
 
   return (
-    <Protected requiredRoles={['gerencia', 'ventas', 'logistica', 'finanzas']}>
+    <Protected requiredRoles={['gerencia', 'ventas', 'logistica', 'finanzas', 'admin']}>
       <ERPLayout activeItem="productos">
         <div className="space-y-6">
           {/* Header */}

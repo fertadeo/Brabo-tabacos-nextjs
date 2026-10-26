@@ -16,10 +16,10 @@ export const COMPANY_EMAIL =
   process.env.NEXT_PUBLIC_COMPANY_EMAIL?.trim() || "soporte@example.com"
 
 export const LOGO_MARK_PATH =
-  process.env.NEXT_PUBLIC_LOGO_MARK_PATH?.trim() || "/images/placeholder-logo.png"
+  process.env.NEXT_PUBLIC_LOGO_MARK_PATH?.trim() || "/images/brabo-logo.png"
 
 export const LOGO_FULL_PATH =
-  process.env.NEXT_PUBLIC_LOGO_FULL_PATH?.trim() || "/images/placeholder-logo.png"
+  process.env.NEXT_PUBLIC_LOGO_FULL_PATH?.trim() || "/images/brabo-logo.png"
 
 export const POWERED_BY_LOGO_PATH =
   process.env.NEXT_PUBLIC_POWERED_BY_LOGO_PATH?.trim() || "/images/aurix-logo.png"

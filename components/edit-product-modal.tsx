@@ -63,6 +63,8 @@ interface FormData {
   description: string
   category_id: string
   price: string
+  price_mayorista: string
+  price_revendedor: string
   stock: string
   min_stock: string
   max_stock: string
@@ -72,6 +74,13 @@ interface FormData {
   width: string
   height: string
   allow_backorders: string  // "0" | "1"
+}
+
+function formatPriceInput(n: number): string {
+  return Math.round(Number(n) || 0).toLocaleString("es-AR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
 }
 
 export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditProductModalProps) {
@@ -109,6 +118,8 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
     description: "",
     category_id: "",
     price: "",
+    price_mayorista: "",
+    price_revendedor: "",
     stock: "0",
     min_stock: "0",
     max_stock: "1000",
@@ -150,12 +161,17 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
     if (isOpen && product) {
       const stock = product.stock ?? 0
       const allowBackorders = product.allow_backorders === true
+      const localPrice = Number(product.prices?.venta_local ?? product.price ?? 0)
+      const mayoristaPrice = Number(product.prices?.mayorista ?? localPrice)
+      const revendedorPrice = Number(product.prices?.revendedor ?? localPrice)
       setFormData({
         code: product.code ?? "",
         name: product.name ?? "",
         description: product.description ?? "",
         category_id: product.category_id != null ? String(product.category_id) : "",
-        price: Math.round(Number(product.price ?? 0)).toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+        price: formatPriceInput(localPrice),
+        price_mayorista: formatPriceInput(mayoristaPrice),
+        price_revendedor: formatPriceInput(revendedorPrice),
         stock: String(stock),
         min_stock: String(product.min_stock ?? 0),
         max_stock: String(product.max_stock ?? 1000),
@@ -203,7 +219,12 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
     if (formData.description.trim() !== (product.description ?? "").trim()) return true
     const fc = formData.category_id ? parseInt(formData.category_id, 10) : null
     if (fc !== (product.category_id ?? null)) return true
-    if (parsePrecioFormato(formData.price) !== Number(product.price ?? 0)) return true
+    const prevLocal = Number(product.prices?.venta_local ?? product.price ?? 0)
+    const prevMayorista = Number(product.prices?.mayorista ?? prevLocal)
+    const prevRevendedor = Number(product.prices?.revendedor ?? prevLocal)
+    if (parsePrecioFormato(formData.price) !== prevLocal) return true
+    if (parsePrecioFormato(formData.price_mayorista) !== prevMayorista) return true
+    if (parsePrecioFormato(formData.price_revendedor) !== prevRevendedor) return true
     if ((parseInt(formData.stock, 10) || 0) !== pStock) return true
     if ((parseInt(formData.min_stock, 10) || 0) !== (product.min_stock ?? 0)) return true
     if ((parseInt(formData.max_stock, 10) || 1000) !== (product.max_stock ?? 1000)) return true
@@ -417,7 +438,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
     if (!formData.name.trim()) return "El nombre del producto es obligatorio"
     if (formData.name.trim().length > 100) return "El nombre no puede exceder 100 caracteres"
     const price = parsePrecioFormato(formData.price)
-    if (isNaN(price) || price < 0) return "El precio debe ser un número mayor o igual a 0"
+    const priceMayorista = parsePrecioFormato(formData.price_mayorista)
+    const priceRevendedor = parsePrecioFormato(formData.price_revendedor)
+    if (isNaN(price) || price < 0) return "El precio de Venta en local debe ser un número mayor o igual a 0"
+    if (isNaN(priceMayorista) || priceMayorista < 0) return "El precio Mayorista debe ser un número mayor o igual a 0"
+    if (isNaN(priceRevendedor) || priceRevendedor < 0) return "El precio Revendedor debe ser un número mayor o igual a 0"
     const stock = parseInt(formData.stock) || 0
     if (stock < 0) return "El stock no puede ser negativo"
     const minStock = parseInt(formData.min_stock) || 0
@@ -483,6 +508,8 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
         }
 
         const nextPrice = parsePrecioFormato(formData.price)
+      const nextMayorista = parsePrecioFormato(formData.price_mayorista)
+      const nextRevendedor = parsePrecioFormato(formData.price_revendedor)
       const nextMinStock = parseInt(formData.min_stock) || 0
       const nextMaxStock = parseInt(formData.max_stock) || 1000
       const nextCategoryId = formData.category_id ? parseInt(formData.category_id) : null
@@ -512,7 +539,9 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
 
       const prevStock = product.stock ?? 0
       const prevIsActive = product.is_active ?? true
-      const prevPrice = Number(product.price ?? 0)
+      const prevPrice = Number(product.prices?.venta_local ?? product.price ?? 0)
+      const prevMayorista = Number(product.prices?.mayorista ?? prevPrice)
+      const prevRevendedor = Number(product.prices?.revendedor ?? prevPrice)
       const prevMinStock = product.min_stock ?? 0
       const prevMaxStock = product.max_stock ?? 1000
       const prevCategoryId = product.category_id ?? null
@@ -522,7 +551,10 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
 
       const stockChanged = stock !== prevStock
       const activeChanged = isActive !== prevIsActive
-      const priceChanged = nextPrice !== prevPrice
+      const priceChanged =
+        nextPrice !== prevPrice ||
+        nextMayorista !== prevMayorista ||
+        nextRevendedor !== prevRevendedor
       const limitsChanged = nextMinStock !== prevMinStock || nextMaxStock !== prevMaxStock
       const categoryChanged = nextCategoryId !== prevCategoryId
       const codeChanged = nextCode !== prevCode
@@ -540,7 +572,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
       if (stockChanged && !(activeChanged && !isActive)) {
         preSteps.push("Actualizando stock…")
       }
-      if (priceChanged) preSteps.push("Actualizando precio…")
+      if (priceChanged) preSteps.push("Actualizando precios…")
       if (infoChanged) preSteps.push("Actualizando información del producto…")
       if (limitsChanged) preSteps.push("Actualizando límites de stock…")
       if (imagesChanged) preSteps.push("Actualizando imágenes…")
@@ -563,6 +595,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
         description: nextDescription || null,
         category_id: nextCategoryId,
         price: nextPrice,
+        prices: {
+          venta_local: nextPrice,
+          mayorista: nextMayorista,
+          revendedor: nextRevendedor,
+        },
         stock,
         min_stock: nextMinStock,
         max_stock: nextMaxStock,
@@ -658,6 +695,8 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
     setDraftCloseLoading(true)
     try {
       const nextPrice = parsePrecioFormato(formData.price)
+      const nextMayorista = parsePrecioFormato(formData.price_mayorista)
+      const nextRevendedor = parsePrecioFormato(formData.price_revendedor)
       const nextMinStock = parseInt(formData.min_stock, 10) || 0
       const nextMaxStock = parseInt(formData.max_stock, 10) || 1000
       const nextCategoryId = formData.category_id ? parseInt(formData.category_id, 10) : null
@@ -682,6 +721,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
         description: nextDescription || null,
         category_id: nextCategoryId,
         price: nextPrice,
+        prices: {
+          venta_local: nextPrice,
+          mayorista: nextMayorista,
+          revendedor: nextRevendedor,
+        },
         stock: 0,
         min_stock: nextMinStock,
         max_stock: nextMaxStock,
@@ -832,22 +876,65 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-price">Precio *</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="edit-price"
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="Ej: 1.250.000"
-                      value={formData.price}
-                      onChange={(e) => handleInputChange("price", e.target.value)}
-                      onFocus={handleNumericFocus}
-                      className="h-10 pl-9"
-                    />
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Listas de precio *</Label>
+                  <p className="text-xs text-muted-foreground">Precios finales con IVA incluido.</p>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="edit-price" className="text-xs text-muted-foreground">
+                        Venta en local
+                      </Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="edit-price"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Ej: 1.250.000"
+                          value={formData.price}
+                          onChange={(e) => handleInputChange("price", e.target.value)}
+                          onFocus={handleNumericFocus}
+                          className="h-10 pl-9"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="edit-price-mayorista" className="text-xs text-muted-foreground">
+                        Mayorista
+                      </Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="edit-price-mayorista"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Ej: 1.100.000"
+                          value={formData.price_mayorista}
+                          onChange={(e) => handleInputChange("price_mayorista", e.target.value)}
+                          onFocus={handleNumericFocus}
+                          className="h-10 pl-9"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="edit-price-revendedor" className="text-xs text-muted-foreground">
+                        Revendedor
+                      </Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="edit-price-revendedor"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Ej: 950.000"
+                          value={formData.price_revendedor}
+                          onChange={(e) => handleInputChange("price_revendedor", e.target.value)}
+                          onFocus={handleNumericFocus}
+                          className="h-10 pl-9"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">Precio final con IVA incluido.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-iva-rate">Alícuota IVA</Label>
