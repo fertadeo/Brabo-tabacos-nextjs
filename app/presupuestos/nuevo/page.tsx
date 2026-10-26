@@ -38,6 +38,7 @@ import { BudgetLinesPanel } from "@/components/budget-lines-panel"
 import { PosManualItemCard } from "@/components/pos-manual-item-card"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { COMPANY_NAME } from "@/lib/brand"
 
 const ROLES_EDITAR: Role[] = ["admin", "gerencia", "ventas"]
 
@@ -267,7 +268,8 @@ export default function NuevoPresupuestoPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Nuevo presupuesto</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Guardá el presupuesto y descargá el PDF para el cliente. No se descuenta stock hasta convertir a venta.
+              Armá la cotización con productos del local (cigarrillos, golosinas, medicamentos u otros). El PDF lleva
+              el logo de {COMPANY_NAME}. El stock se descuenta al convertir a venta.
             </p>
           </div>
 
@@ -316,7 +318,7 @@ export default function NuevoPresupuestoPage() {
                 <CardHeader>
                   <CardTitle>Catálogo</CardTitle>
                   <CardDescription>
-                    Lista, cuadrícula o vista ampliada. También podés usar <strong>Armado de PC</strong>.
+                    Buscá por nombre o categoría. Lista, cuadrícula o vista ampliada.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

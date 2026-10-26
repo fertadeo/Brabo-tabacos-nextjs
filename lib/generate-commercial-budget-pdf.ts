@@ -1,5 +1,5 @@
 /**
- * PDF de presupuesto comercial para entregar al cliente (misma línea gráfica que la recepción de orden de reparación).
+ * PDF de presupuesto comercial para entregar al cliente (retail: cigarrillos, golosinas, medicamentos).
  */
 import jsPDF from "jspdf"
 import type { CommercialBudgetDetail } from "@/lib/api"
@@ -9,26 +9,25 @@ import {
   documentClientePdfFromSnapshot,
   drawDocumentClientePdfDetails,
 } from "@/lib/document-cliente-pdf"
-
-const LOGO_PATH =
-  process.env.NEXT_PUBLIC_LOGO_MARK_PATH?.trim() || "/images/brabo-logo.png"
-
-const BRAND_BLUE: [number, number, number] = [29, 78, 158]
-const BRAND_BLUE_DARK: [number, number, number] = [18, 52, 112]
-const BRAND_BLUE_LIGHT: [number, number, number] = [232, 239, 250]
-const GRAY_LINE: [number, number, number] = [226, 232, 240]
-const TEXT_MUTED: [number, number, number] = [100, 116, 139]
-const TEXT_BODY: [number, number, number] = [30, 41, 59]
+import { COMPANY_PDF, LOGO_MARK_PATH, loadBrandLogoImage } from "@/lib/brand"
+import {
+  PDF_BRAND_BLUE as BRAND_BLUE,
+  PDF_BRAND_BLUE_DARK as BRAND_BLUE_DARK,
+  PDF_BRAND_BLUE_LIGHT as BRAND_BLUE_LIGHT,
+  PDF_GRAY_LINE as GRAY_LINE,
+  PDF_TEXT_BODY as TEXT_BODY,
+  PDF_TEXT_MUTED as TEXT_MUTED,
+} from "@/lib/pdf-brand-colors"
 
 const COMPANY = {
-  name: process.env.NEXT_PUBLIC_COMPANY_NAME?.trim() || process.env.NEXT_PUBLIC_APP_NAME?.trim() || "Aurix Retail",
-  legalName: "MAXIMILIANO IVAN JESUS FIGUEROA",
-  cuit: "20-33998594-5",
-  tagline: "Soluciones informáticas",
-  address: "Luther King 1095",
-  city: "Santa Rosa, La Pampa",
+  name: COMPANY_PDF.name,
+  legalName: COMPANY_PDF.legalName,
+  cuit: COMPANY_PDF.cuit || "—",
+  tagline: COMPANY_PDF.tagline,
+  address: COMPANY_PDF.address || COMPANY_PDF.addressLine || "—",
+  city: COMPANY_PDF.city,
   phone: "",
-  email: "",
+  email: COMPANY_PDF.email,
 }
 
 export interface CommercialBudgetPdfLineItem {
@@ -314,10 +313,13 @@ function renderCommercialBudgetPdf(
   doc.setTextColor(...TEXT_BODY)
   doc.text(COMPANY.legalName, mx, headerLeftY)
   headerLeftY += 11
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(8)
-  doc.setTextColor(...TEXT_MUTED)
-  doc.text(`CUIT: ${COMPANY.cuit}`, mx, headerLeftY)
+  if (COMPANY.cuit && COMPANY.cuit !== "—") {
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(8)
+    doc.setTextColor(...TEXT_MUTED)
+    doc.text(`CUIT: ${COMPANY.cuit}`, mx, headerLeftY)
+    headerLeftY += 11
+  }
   const headerLeftBottom = headerLeftY + 8
 
   doc.setFont("helvetica", "bold")
@@ -387,17 +389,24 @@ function renderCommercialBudgetPdf(
 
     doc.text(COMPANY.legalName, mx, y)
     y += 11
-    doc.setFontSize(8)
-    doc.setTextColor(...TEXT_MUTED)
-    doc.text(`CUIT: ${COMPANY.cuit}`, mx, y)
-    y += 11
+    if (COMPANY.cuit && COMPANY.cuit !== "—") {
+      doc.setFontSize(8)
+      doc.setTextColor(...TEXT_MUTED)
+      doc.text(`CUIT: ${COMPANY.cuit}`, mx, y)
+      y += 11
+    }
     doc.setFontSize(9)
     doc.setTextColor(...TEXT_BODY)
     doc.text(COMPANY.tagline, mx, y)
     y += 11
-    doc.text(COMPANY.address, mx, y)
-    y += 11
-    doc.text(COMPANY.city, mx, y)
+    if (COMPANY.address && COMPANY.address !== "—") {
+      doc.text(COMPANY.address, mx, y)
+      y += 11
+    }
+    if (COMPANY.city) {
+      doc.text(COMPANY.city, mx, y)
+      y += 11
+    }
 
     yClient = drawDocumentClientePdfDetails(doc, clientColX, yClient, {
       clientCuit: params.clientCuit,
@@ -552,14 +561,14 @@ function renderCommercialBudgetPdf(
     doc.setFont("helvetica", "bold")
     doc.setFontSize(11)
     doc.setTextColor(...BRAND_BLUE)
-    doc.text("Gracias por confiar en nosotros", mx, y)
+    doc.text("Gracias por su compra", mx, y)
 }
 
-export function buildCommercialBudgetPdf(
+export async function buildCommercialBudgetPdf(
   params: GenerateCommercialBudgetPdfParams
 ): Promise<{ doc: jsPDF; safeFile: string }> {
   if (typeof window === "undefined") {
-    return Promise.reject(new Error("PDF solo disponible en el navegador"))
+    throw new Error("PDF solo disponible en el navegador")
   }
 
   const doc = new jsPDF("p", "pt", "a4")
@@ -567,26 +576,19 @@ export function buildCommercialBudgetPdf(
   const topY = 36
   const safeFile = String(params.budget_number || "presupuesto").replace(/[^\w\-]+/g, "-")
 
-  return new Promise((resolve) => {
-    const img = new window.Image()
-    img.crossOrigin = "anonymous"
-    img.src = LOGO_PATH
-    img.onload = () => {
-      const lw = 108
-      const lh = img.width ? (img.height / img.width) * lw : 56
-      try {
-        doc.addImage(img, "PNG", mx, topY, lw, lh)
-      } catch {
-        /* continuar sin logo */
-      }
-      renderCommercialBudgetPdf(doc, params, lh)
-      resolve({ doc, safeFile })
+  const img = await loadBrandLogoImage(LOGO_MARK_PATH)
+  let logoH = 0
+  if (img) {
+    const lw = 108
+    logoH = img.width ? (img.height / img.width) * lw : 56
+    try {
+      doc.addImage(img, "PNG", mx, topY, lw, logoH)
+    } catch {
+      logoH = 0
     }
-    img.onerror = () => {
-      renderCommercialBudgetPdf(doc, params, 0)
-      resolve({ doc, safeFile })
-    }
-  })
+  }
+  renderCommercialBudgetPdf(doc, params, logoH)
+  return { doc, safeFile }
 }
 
 export async function getCommercialBudgetPdfBlob(params: GenerateCommercialBudgetPdfParams): Promise<Blob> {

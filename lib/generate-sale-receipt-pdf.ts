@@ -4,7 +4,7 @@
  */
 import jsPDF from "jspdf"
 import type { SaleResponseData, SalePaymentMethod } from "@/lib/api"
-import { LOGO_MARK_PATH } from "@/lib/brand"
+import { COMPANY_PDF, LOGO_MARK_PATH, loadBrandLogoImage } from "@/lib/brand"
 
 const PAYMENT_LABELS: Record<SalePaymentMethod, string> = {
   efectivo: "Efectivo",
@@ -36,25 +36,21 @@ export function generateSaleReceiptPdf(params: {
   const marginX = 40
   let y = 32
 
-  try {
-    const img = new window.Image()
-    img.src = LOGO_MARK_PATH
-    img.onload = () => {
-      const logoWidth = 120
-      const ratio = img.width ? img.height / img.width : 0
-      const logoHeight = ratio ? ratio * logoWidth : 67
-      doc.addImage(img, "PNG", marginX, y, logoWidth, logoHeight)
-      renderRest()
-      doc.save(`comprobante-venta-${sale.sale_number}.pdf`)
+  void (async () => {
+    try {
+      const img = await loadBrandLogoImage(LOGO_MARK_PATH)
+      if (img) {
+        const logoWidth = 120
+        const ratio = img.width ? img.height / img.width : 0
+        const logoHeight = ratio ? ratio * logoWidth : 67
+        doc.addImage(img, "PNG", marginX, y, logoWidth, logoHeight)
+      }
+    } catch {
+      /* sin logo */
     }
-    img.onerror = () => {
-      renderRest()
-      doc.save(`comprobante-venta-${sale.sale_number}.pdf`)
-    }
-  } catch {
     renderRest()
     doc.save(`comprobante-venta-${sale.sale_number}.pdf`)
-  }
+  })()
 
   function renderRest() {
     let cursorY = y
@@ -72,15 +68,11 @@ export function generateSaleReceiptPdf(params: {
 
     cursorY = headerBoxTop + 18
     doc.setFont("helvetica", "bold")
-    doc.text(
-      `${process.env.NEXT_PUBLIC_COMPANY_NAME?.trim() || process.env.NEXT_PUBLIC_APP_NAME?.trim() || "Aurix Retail"}`,
-      marginX + 10,
-      cursorY
-    )
+    doc.text(COMPANY_PDF.name, marginX + 10, cursorY)
     doc.setFont("helvetica", "normal")
     doc.setTextColor(100, 116, 139)
     cursorY += 14
-    doc.text("Luther king 1095,Santa Rosa,La Pampa", marginX + 10, cursorY)
+    doc.text(COMPANY_PDF.addressLine || COMPANY_PDF.tagline, marginX + 10, cursorY)
     cursorY += 12
     doc.text("Comprobante interno de venta", marginX + 10, cursorY)
 

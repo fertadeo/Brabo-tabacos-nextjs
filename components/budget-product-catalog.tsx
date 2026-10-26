@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { FEATURE_REPARACIONES } from "@/lib/features"
 import {
   Check,
   ChevronLeft,
@@ -451,6 +452,7 @@ export function BudgetProductCatalog({
 
   return (
     <div className={cn("space-y-3", className)}>
+      {FEATURE_REPARACIONES && (
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
@@ -478,6 +480,7 @@ export function BudgetProductCatalog({
           Armado de PC
         </Button>
       </div>
+      )}
 
       {mode === "pc-build" && (
         <div className="rounded-lg border bg-gradient-to-br from-primary/5 via-background to-background p-3 space-y-3">

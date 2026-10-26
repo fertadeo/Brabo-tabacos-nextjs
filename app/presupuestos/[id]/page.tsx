@@ -706,12 +706,8 @@ export default function PresupuestoDetallePage() {
           <Separator />
 
           <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
-            Los presupuestos no reservan stock. La conversión a venta usa el mismo flujo que el POS y
-            valida disponibilidad en ese momento. Las{" "}
-            <Link href="/reparaciones" className="underline underline-offset-2">
-              órdenes de reparación
-            </Link>{" "}
-            tienen otro circuito (presupuesto de taller).
+            Los presupuestos no reservan stock. Al convertir a venta se usa el mismo flujo que el punto de venta y se
+            valida disponibilidad en ese momento.
           </p>
         </div>
 

@@ -30,12 +30,22 @@ import {
   normalizeSaleIvaRate,
 } from "@/lib/sale-iva"
 
+import { COMPANY_LEGAL_NAME, COMPANY_NAME, COMPANY_ADDRESS_LINE } from "@/lib/brand"
+
 const EMISOR_DEFAULT = {
-  razonSocial: "FIGUEROA MAXIMILIANO IVAN JESUS",
-  domicilio: "Luther King 1095 - Santa Rosa, La Pampa",
-  condicionIva: "IVA Responsable Inscripto",
-  ingresosBrutos: "2275400",
-  inicioActividades: "03/01/2011",
+  razonSocial:
+    process.env.NEXT_PUBLIC_FACTURADOR_RAZON_SOCIAL?.trim() ||
+    COMPANY_LEGAL_NAME ||
+    COMPANY_NAME,
+  domicilio:
+    process.env.NEXT_PUBLIC_FACTURADOR_DOMICILIO?.trim() ||
+    COMPANY_ADDRESS_LINE ||
+    "—",
+  condicionIva:
+    process.env.NEXT_PUBLIC_FACTURADOR_EMISOR_CONDICION_IVA_LABEL?.trim() ||
+    "IVA Responsable Inscripto",
+  ingresosBrutos: process.env.NEXT_PUBLIC_FACTURADOR_INGRESOS_BRUTOS?.trim() || undefined,
+  inicioActividades: process.env.NEXT_PUBLIC_FACTURADOR_INICIO_ACTIVIDADES?.trim() || undefined,
 }
 
 export interface BuildArcaInvoicePdfInputArgs {

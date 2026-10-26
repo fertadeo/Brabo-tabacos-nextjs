@@ -184,12 +184,8 @@ export default function PresupuestosPage() {
             <div className="space-y-1">
               <h1 className="text-3xl font-bold tracking-tight">Presupuestos</h1>
               <p className="max-w-2xl text-muted-foreground text-sm leading-relaxed">
-                Cotizaciones con productos del catálogo y cliente. No mueven stock hasta convertir a venta. Es un
-                flujo distinto de las{" "}
-                <Link href="/reparaciones" className="text-primary underline-offset-4 hover:underline font-medium">
-                  órdenes de reparación
-                </Link>
-                .
+                Cotizá cigarrillos, golosinas, medicamentos y demás productos del catálogo. El stock se descuenta
+                recién al convertir el presupuesto en venta.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 shrink-0">

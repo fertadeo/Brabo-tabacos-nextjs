@@ -279,7 +279,7 @@ export function BudgetPdfModal({
             </div>
           ) : (
             <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border text-sm text-muted-foreground">
-              Vista previa HTML solo disponible para presupuestos de reparación. Usá Descargar PDF.
+              Usá Descargar PDF para obtener el presupuesto con el logo de la tienda.
             </div>
           )}
         </DialogContent>

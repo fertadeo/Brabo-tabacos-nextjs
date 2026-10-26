@@ -32,6 +32,7 @@ import {
 import { arcaIvaDiscriminadoRows, type ArcaIvaDiscriminado } from "@/lib/sale-iva"
 
 import { drawArcaInvoiceHeader } from "@/lib/draw-arca-invoice-header"
+import { LOGO_MARK_PATH, loadBrandLogoImage } from "@/lib/brand"
 
 import {
 
@@ -297,19 +298,26 @@ async function drawInvoicePage(
 
   doc.setLineWidth(0.25)
 
-
-
   let y = margin
-
-
 
   const pageH = doc.internal.pageSize.getHeight()
 
   const bottomY = pageH - margin
 
-  doc.rect(margin, margin, innerW, bottomY - margin)
+  // Logo de marca encima del marco oficial AFIP/ARCA
+  try {
+    const logo = await loadBrandLogoImage(LOGO_MARK_PATH)
+    if (logo) {
+      const logoW = 28
+      const logoH = logo.width ? (logo.height / logo.width) * logoW : 12
+      doc.addImage(logo, "PNG", margin, y, logoW, logoH)
+      y += logoH + 2
+    }
+  } catch {
+    /* continuar sin logo */
+  }
 
-
+  doc.rect(margin, y, innerW, bottomY - y)
 
   y = drawArcaInvoiceHeader({
     doc,
