@@ -24,6 +24,7 @@ import {
 } from "@/lib/sale-iva"
 import { getAllProductImages } from "@/lib/product-image-utils"
 import { uploadImagesToWordPress } from "@/lib/woocommerce-media"
+import { FEATURE_WOOCOMMERCE } from "@/lib/features"
 import { useToast } from "@/contexts/ToastContext"
 import {
   getProductListDestination,
@@ -90,7 +91,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
   const [submitStep, setSubmitStep] = useState<string | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
-  const [syncToWooCommerce, setSyncToWooCommerce] = useState(true)
+  const [syncToWooCommerce, setSyncToWooCommerce] = useState(FEATURE_WOOCOMMERCE)
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [woocommerceImageIds, setWoocommerceImageIds] = useState<(number | null)[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
@@ -183,7 +184,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
         allow_backorders: product.allow_backorders ? "1" : "0",
       })
       setIvaRate(productIvaRate(product))
-      setSyncToWooCommerce(true)
+      setSyncToWooCommerce(FEATURE_WOOCOMMERCE)
       setImageUrlInput("")
       // Imágenes: usar product.images si existe (incluso si es []). Solo usar otras fuentes si images no existe (null/undefined).
       let urls: string[] = []
@@ -375,6 +376,10 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
     setImageUrls((prev) => [...prev, ...newUrls])
     setWoocommerceImageIds((prev) => [...prev, ...newIds])
 
+    if (!FEATURE_WOOCOMMERCE) {
+      return
+    }
+
     setUploadingImages(true)
     try {
       const uploads = await uploadImagesToWordPress(toAdd)
@@ -524,7 +529,9 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
       const validImageUrls = imageUrls.filter(
         (url) =>
           typeof url === "string" &&
-          (url.startsWith("http://") || url.startsWith("https://"))
+          (url.startsWith("http://") ||
+            url.startsWith("https://") ||
+            url.startsWith("data:image/"))
       )
 
       const prevImageUrls =
@@ -605,7 +612,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
         max_stock: nextMaxStock,
         is_active: isActive,
         images: validImageUrls,
-        sync_to_woocommerce: syncToWooCommerce || undefined,
+        sync_to_woocommerce: FEATURE_WOOCOMMERCE && syncToWooCommerce ? true : undefined,
         weight: weightVal ?? undefined,
         length: lengthVal ?? undefined,
         width: widthVal ?? undefined,
@@ -707,7 +714,9 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
       const validImageUrls = imageUrls.filter(
         (url) =>
           typeof url === "string" &&
-          (url.startsWith("http://") || url.startsWith("https://"))
+          (url.startsWith("http://") ||
+            url.startsWith("https://") ||
+            url.startsWith("data:image/"))
       )
 
       const weightVal = formData.weight.trim() === "" ? null : parseFloat(formData.weight)
@@ -1008,23 +1017,25 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
                 )}
               </div>
 
-              {product.woocommerce_id != null ? (
-                <div className="flex items-center space-x-2 pt-2">
-                  <input
-                    type="checkbox"
-                    id="edit-sync-woo"
-                    checked={syncToWooCommerce}
-                    onChange={(e) => setSyncToWooCommerce(e.target.checked)}
-                    className="h-4 w-4 rounded border-primary"
-                  />
-                  <Label htmlFor="edit-sync-woo" className="text-sm cursor-pointer">
-                    Sincronizar cambios con WooCommerce
-                  </Label>
-                </div>
-              ) : (
-                <p className="text-sm text-amber-600 dark:text-amber-500 pt-2">
-                  Este producto aún no está sincronizado con WooCommerce. Sincronizalo desde el detalle del producto para poder enviar cambios.
-                </p>
+              {FEATURE_WOOCOMMERCE && (
+                product.woocommerce_id != null ? (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input
+                      type="checkbox"
+                      id="edit-sync-woo"
+                      checked={syncToWooCommerce}
+                      onChange={(e) => setSyncToWooCommerce(e.target.checked)}
+                      className="h-4 w-4 rounded border-primary"
+                    />
+                    <Label htmlFor="edit-sync-woo" className="text-sm cursor-pointer">
+                      Sincronizar cambios con WooCommerce
+                    </Label>
+                  </div>
+                ) : (
+                  <p className="text-sm text-amber-600 dark:text-amber-500 pt-2">
+                    Este producto aún no está sincronizado con WooCommerce. Sincronizalo desde el detalle del producto para poder enviar cambios.
+                  </p>
+                )
               )}
             </CardContent>
           </Card>
@@ -1048,7 +1059,9 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground">
-                En WooCommerce se sincroniza como &quot;Permitir reservas&quot; → el cliente puede comprar con stock 0 y se le avisará.
+                {FEATURE_WOOCOMMERCE
+                  ? 'En WooCommerce se sincroniza como "Permitir reservas" → el cliente puede comprar con stock 0 y se le avisará.'
+                  : "El cliente puede comprar con stock 0 (venta por encargo)."}
               </p>
             </CardContent>
           </Card>
@@ -1167,7 +1180,9 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
                 <span className="font-medium">Imágenes</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Hasta 5 imágenes. Agregá URLs o subí archivos al equipo (se cargan a la galería de WooCommerce). JPG, PNG, GIF, WebP · máx. 10 MB c/u.
+                {FEATURE_WOOCOMMERCE
+                  ? "Hasta 5 imágenes. Agregá URLs o subí archivos al equipo (se cargan a la galería de WooCommerce). JPG, PNG, GIF, WebP · máx. 10 MB c/u."
+                  : "Hasta 5 imágenes. Agregá URLs o subí archivos. JPG, PNG, GIF, WebP · máx. 10 MB c/u."}
               </p>
               <div
                 className={`flex flex-wrap gap-2 rounded-lg border-2 border-dashed p-3 transition-colors ${
@@ -1184,7 +1199,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
                   className="h-10"
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  {uploadingImages ? "Subiendo…" : "Subir a WooCommerce"}
+                  {uploadingImages
+                    ? "Subiendo…"
+                    : FEATURE_WOOCOMMERCE
+                      ? "Subir a WooCommerce"
+                      : "Cargar imágenes"}
                 </Button>
                 <input
                   ref={fileInputRef}

@@ -1903,24 +1903,9 @@ export interface Category {
   updated_at: string
 }
 
-// Función helper para obtener headers con API Key (categorías y endpoints que requieren X-API-Key)
+/** Headers JWT para categorías (CRUD del ERP; ya no requiere X-API-Key). */
 function getCategoryHeaders(): HeadersInit {
-  const token = getAuthToken();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
-  const apiKey =
-    (typeof window !== 'undefined' && localStorage.getItem('apiKey')) ||
-    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_KEY);
-
-  if (apiKey) {
-    headers['X-API-Key'] = apiKey;
-  } else if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  return headers;
+  return getAuthHeaders()
 }
 
 // Interfaz para crear categoría

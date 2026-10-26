@@ -13,6 +13,7 @@ import { FolderTree, Search, Plus, RefreshCw, Edit, Trash2 } from "lucide-react"
 import { getCategories, deleteCategory, type Category } from "@/lib/api"
 import { useToast } from "@/contexts/ToastContext"
 import { CategoryModal } from "@/components/category-modal"
+import { FEATURE_WOOCOMMERCE } from "@/lib/features"
 
 export default function CategoriasPage() {
   const { showToast } = useToast()
@@ -94,14 +95,14 @@ export default function CategoriasPage() {
   const inactiveCount = categories.length - activeCount
 
   return (
-    <Protected requiredRoles={["gerencia", "ventas", "logistica", "finanzas"]}>
+    <Protected requiredRoles={["gerencia", "ventas", "logistica", "finanzas", "admin"]}>
       <ERPLayout activeItem="categorias">
         <div className="space-y-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h1 className="text-3xl font-bold">Categorías de productos</h1>
               <p className="text-muted-foreground">
-                Gestiona categorías vinculadas a WooCommerce
+                Organizá el catálogo por categorías
               </p>
             </div>
             <div className="flex gap-2">
@@ -150,7 +151,11 @@ export default function CategoriasPage() {
           <Card>
             <CardHeader>
               <CardTitle>Categorías</CardTitle>
-              <CardDescription>Lista de categorías. Edita para vincular con WooCommerce (ID y slug).</CardDescription>
+              <CardDescription>
+                {FEATURE_WOOCOMMERCE
+                  ? "Lista de categorías. Edita para vincular con WooCommerce (ID y slug)."
+                  : "Lista de categorías del catálogo."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col gap-4 mb-4 md:flex-row">
@@ -189,7 +194,7 @@ export default function CategoriasPage() {
                       <TableHead>Nombre</TableHead>
                       <TableHead>Descripción</TableHead>
                       <TableHead>Categoría padre</TableHead>
-                      <TableHead>WooCommerce</TableHead>
+                      {FEATURE_WOOCOMMERCE && <TableHead>WooCommerce</TableHead>}
                       <TableHead>Estado</TableHead>
                       <TableHead className="w-[100px]">Acciones</TableHead>
                     </TableRow>
@@ -197,7 +202,10 @@ export default function CategoriasPage() {
                   <TableBody>
                     {filteredCategories.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell
+                          colSpan={FEATURE_WOOCOMMERCE ? 6 : 5}
+                          className="text-center py-8 text-muted-foreground"
+                        >
                           No hay categorías
                         </TableCell>
                       </TableRow>
@@ -211,17 +219,19 @@ export default function CategoriasPage() {
                           <TableCell className="text-muted-foreground">
                             {getParentName(cat.parent_id)}
                           </TableCell>
-                          <TableCell>
-                            {cat.woocommerce_id != null || cat.woocommerce_slug ? (
-                              <Badge variant="secondary" className="font-mono text-xs">
-                                {cat.woocommerce_id != null ? `ID ${cat.woocommerce_id}` : ""}
-                                {cat.woocommerce_id != null && cat.woocommerce_slug ? " · " : ""}
-                                {cat.woocommerce_slug || ""}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )}
-                          </TableCell>
+                          {FEATURE_WOOCOMMERCE && (
+                            <TableCell>
+                              {cat.woocommerce_id != null || cat.woocommerce_slug ? (
+                                <Badge variant="secondary" className="font-mono text-xs">
+                                  {cat.woocommerce_id != null ? `ID ${cat.woocommerce_id}` : ""}
+                                  {cat.woocommerce_id != null && cat.woocommerce_slug ? " · " : ""}
+                                  {cat.woocommerce_slug || ""}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell>
                             <Badge variant={cat.is_active !== false ? "default" : "secondary"}>
                               {cat.is_active !== false ? "Activa" : "Inactiva"}

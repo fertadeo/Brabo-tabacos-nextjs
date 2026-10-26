@@ -17,6 +17,7 @@ import { IvaRateSelect } from "@/components/iva-rate-select"
 import { DEFAULT_SALE_IVA_RATE, type SaleIvaRate } from "@/lib/sale-iva"
 import { generateProductCodes } from "@/lib/product-codes"
 import { uploadImagesToWordPress } from "@/lib/woocommerce-media"
+import { FEATURE_WOOCOMMERCE } from "@/lib/features"
 import { CategoryManagerPanel } from "@/components/category-manager-panel"
 import {
   getProductListDestination,
@@ -108,7 +109,7 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
   })
   const [barcode, setBarcode] = useState<string>("")
   const [qrCode, setQrCode] = useState<string>("")
-  const [syncToWooCommerce, setSyncToWooCommerce] = useState(true)
+  const [syncToWooCommerce, setSyncToWooCommerce] = useState(FEATURE_WOOCOMMERCE)
   const [ivaRate, setIvaRate] = useState<SaleIvaRate>(DEFAULT_SALE_IVA_RATE)
 
   // Cargar categorías desde la API
@@ -322,6 +323,11 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
     )
     setImages((prev) => [...prev, ...newItems])
 
+    if (!FEATURE_WOOCOMMERCE) {
+      // Sin WooCommerce: se guardan las data URLs locales
+      return
+    }
+
     // Subir a WooCommerce en segundo plano y actualizar URLs cuando termine
     setUploadingImages(true)
     try {
@@ -454,12 +460,14 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
         const validImages = images.filter(
           (img) =>
             typeof img.url === "string" &&
-            (img.url.startsWith("http://") || img.url.startsWith("https://"))
+            (img.url.startsWith("http://") ||
+              img.url.startsWith("https://") ||
+              img.url.startsWith("data:image/"))
         )
         const imageUrls: string[] = validImages.map((img) => img.url)
-        const woocommerceImageIds = validImages
-          .map((img) => img.woocommerceId)
-          .filter((id): id is number => id != null)
+        const woocommerceImageIds = FEATURE_WOOCOMMERCE
+          ? validImages.map((img) => img.woocommerceId).filter((id): id is number => id != null)
+          : []
 
         let finalBarcode = barcode
         let finalQrCode = qrCode
@@ -496,7 +504,7 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
           is_active: isActive,
           barcode: finalBarcode || null,
           qr_code: finalQrCode || null,
-          sync_to_woocommerce: syncToWooCommerce,
+          sync_to_woocommerce: FEATURE_WOOCOMMERCE && syncToWooCommerce,
           weight: weightVal ?? undefined,
           length: lengthVal ?? undefined,
           width: widthVal ?? undefined,
@@ -562,7 +570,7 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
     })
     setBarcode("")
     setQrCode("")
-    setSyncToWooCommerce(true)
+    setSyncToWooCommerce(FEATURE_WOOCOMMERCE)
     setIvaRate(DEFAULT_SALE_IVA_RATE)
     setImages([])
     setImageUrlInput("")
@@ -1088,18 +1096,20 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
                     )}
                   </div>
 
-                  <div className="flex items-center space-x-2 pt-2">
-                    <input
-                      type="checkbox"
-                      id="sync-woocommerce"
-                      checked={syncToWooCommerce}
-                      onChange={(e) => setSyncToWooCommerce(e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-turquoise-600 focus:ring-turquoise-500"
-                    />
-                    <Label htmlFor="sync-woocommerce" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                      Sincronizar con WooCommerce al crear
-                    </Label>
-                  </div>
+                  {FEATURE_WOOCOMMERCE && (
+                    <div className="flex items-center space-x-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="sync-woocommerce"
+                        checked={syncToWooCommerce}
+                        onChange={(e) => setSyncToWooCommerce(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-turquoise-600 focus:ring-turquoise-500"
+                      />
+                      <Label htmlFor="sync-woocommerce" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                        Sincronizar con WooCommerce al crear
+                      </Label>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1131,7 +1141,7 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
                     </Label>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Si está marcado, el producto puede venderse con stock 0 y se avisará al cliente (WooCommerce: permitir reservas).
+                    Si está marcado, el producto puede venderse con stock 0.
                   </p>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1273,11 +1283,17 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
                       className="flex items-center gap-2 h-12 px-6 bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 border-purple-200 dark:border-purple-700 dark:bg-gradient-to-r dark:from-slate-700 dark:to-slate-600 dark:hover:from-slate-600 dark:hover:to-slate-500 dark:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Upload className="h-5 w-5" />
-                      {uploadingImages ? "Subiendo a WooCommerce…" : "Subir a WooCommerce"}
+                      {uploadingImages
+                        ? "Subiendo…"
+                        : FEATURE_WOOCOMMERCE
+                          ? "Subir a WooCommerce"
+                          : "Cargar imágenes"}
                     </Button>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Las imágenes se suben a la galería de WooCommerce y se asocian al producto
+                        {FEATURE_WOOCOMMERCE
+                          ? "Las imágenes se suben a la galería de WooCommerce y se asocian al producto"
+                          : "Las imágenes se adjuntan al producto (también podés pegar una URL)"}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         JPG, PNG, GIF, WebP • Máx. 10MB por imagen

@@ -32,6 +32,7 @@ import {
 import { SaleClienteSection } from "@/components/sale-cliente-section"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { FEATURE_WOOCOMMERCE } from "@/lib/features"
 
 const PAYMENT_LABELS: Record<SalePaymentMethod, string> = {
   efectivo: "Efectivo",
@@ -79,7 +80,7 @@ export function BudgetConvertSaleDialog({
   const [tarjeta, setTarjeta] = useState(0)
   const [transferencia, setTransferencia] = useState(0)
   const [notes, setNotes] = useState("")
-  const [syncWoo, setSyncWoo] = useState(true)
+  const [syncWoo, setSyncWoo] = useState(FEATURE_WOOCOMMERCE)
   const [allowInactive, setAllowInactive] = useState(false)
   const [overrideClientId, setOverrideClientId] = useState("")
   const [overrideCliente, setOverrideCliente] = useState<Cliente | null>(null)
@@ -246,12 +247,14 @@ export function BudgetConvertSaleDialog({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Checkbox id="woo" checked={syncWoo} onCheckedChange={(c) => setSyncWoo(c === true)} />
-              <Label htmlFor="woo" className="text-sm font-normal cursor-pointer">
-                Sincronizar con WooCommerce
-              </Label>
-            </div>
+            {FEATURE_WOOCOMMERCE && (
+              <div className="flex items-center gap-2">
+                <Checkbox id="woo" checked={syncWoo} onCheckedChange={(c) => setSyncWoo(c === true)} />
+                <Label htmlFor="woo" className="text-sm font-normal cursor-pointer">
+                  Sincronizar con WooCommerce
+                </Label>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Checkbox id="ina" checked={allowInactive} onCheckedChange={(c) => setAllowInactive(c === true)} />
               <Label htmlFor="ina" className="text-sm font-normal cursor-pointer">

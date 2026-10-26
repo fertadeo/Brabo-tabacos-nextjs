@@ -23,6 +23,7 @@ import {
   type PriceSampleRow,
   type PricingCategoryRow,
 } from "@/lib/product-pricing"
+import { FEATURE_WOOCOMMERCE } from "@/lib/features"
 
 interface CategoryAdjustmentPanelProps {
   onApplied?: () => void
@@ -404,14 +405,16 @@ export function CategoryAdjustmentPanel({ onApplied }: CategoryAdjustmentPanelPr
           </div>
         </div>
 
-        <label className="flex min-h-10 items-start gap-3 text-sm cursor-pointer rounded-lg border p-3 sm:border-0 sm:p-0">
-          <Checkbox
-            className="mt-0.5"
-            checked={syncWoo}
-            onCheckedChange={(v) => setSyncWoo(v === true)}
-          />
-          <span>Sincronizar con WooCommerce al aplicar</span>
-        </label>
+        {FEATURE_WOOCOMMERCE && (
+          <label className="flex min-h-10 items-start gap-3 text-sm cursor-pointer rounded-lg border p-3 sm:border-0 sm:p-0">
+            <Checkbox
+              className="mt-0.5"
+              checked={syncWoo}
+              onCheckedChange={(v) => setSyncWoo(v === true)}
+            />
+            <span>Sincronizar con WooCommerce al aplicar</span>
+          </label>
+        )}
 
         <div
           className={cn(

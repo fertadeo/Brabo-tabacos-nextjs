@@ -31,6 +31,7 @@ import { filterProductCatalog } from "@/lib/product-catalog-filter"
 import { formatSaleIvaRateLabel, productIvaRate } from "@/lib/sale-iva"
 import { ProductExportDialog } from "@/components/product-export-dialog"
 import { LinkWooCommerceIdsButton, LinkWooCommerceSummary } from "@/components/products/link-woocommerce-ids-button"
+import { FEATURE_WOOCOMMERCE } from "@/lib/features"
 import Image from "next/image"
 import {
   Select,
@@ -288,7 +289,8 @@ export default function ProductosPage() {
 
   // Verificar si el usuario puede realizar acciones de administración
   const canManageProducts = isAdmin()
-  const canLinkWooCommerce = hasAnyOfRoles(['gerencia', 'admin', 'superadmin'])
+  const canLinkWooCommerce =
+    FEATURE_WOOCOMMERCE && hasAnyOfRoles(['gerencia', 'admin', 'superadmin'])
   const canBatchPricing = hasAnyOfRoles(['gerencia', 'admin', 'superadmin'])
 
   const hasActiveFilters =

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Category, createCategory, updateCategory, CreateCategoryData, UpdateCategoryData } from "@/lib/api"
+import { FEATURE_WOOCOMMERCE } from "@/lib/features"
 import { useConfirmBeforeClose } from "@/lib/use-confirm-before-close"
 
 export interface CategoryModalProps {
@@ -74,9 +75,11 @@ export function CategoryModal({
           description: formData.description.trim() || undefined,
           ...(formData.parent_id ? { parent_id: parseInt(formData.parent_id) } : {}),
         }
-        if (formData.woocommerce_id.trim())
-          data.woocommerce_id = parseInt(formData.woocommerce_id, 10) || undefined
-        if (formData.woocommerce_slug.trim()) data.woocommerce_slug = formData.woocommerce_slug.trim()
+        if (FEATURE_WOOCOMMERCE) {
+          if (formData.woocommerce_id.trim())
+            data.woocommerce_id = parseInt(formData.woocommerce_id, 10) || undefined
+          if (formData.woocommerce_slug.trim()) data.woocommerce_slug = formData.woocommerce_slug.trim()
+        }
         await createCategory(data)
       } else if (category) {
         const data: UpdateCategoryData = {
@@ -84,10 +87,14 @@ export function CategoryModal({
           description: formData.description.trim() || undefined,
           ...(formData.parent_id ? { parent_id: parseInt(formData.parent_id) } : { parent_id: null }),
           is_active: formData.is_active,
-          woocommerce_id: formData.woocommerce_id.trim()
-            ? parseInt(formData.woocommerce_id, 10) || null
-            : null,
-          woocommerce_slug: formData.woocommerce_slug.trim() || null,
+          ...(FEATURE_WOOCOMMERCE
+            ? {
+                woocommerce_id: formData.woocommerce_id.trim()
+                  ? parseInt(formData.woocommerce_id, 10) || null
+                  : null,
+                woocommerce_slug: formData.woocommerce_slug.trim() || null,
+              }
+            : {}),
         }
         await updateCategory(category.id, data)
       }
@@ -161,28 +168,30 @@ export function CategoryModal({
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cat-modal-wc-id">ID WooCommerce</Label>
-              <Input
-                id="cat-modal-wc-id"
-                type="text"
-                inputMode="numeric"
-                value={formData.woocommerce_id}
-                onChange={(e) => setFormData((p) => ({ ...p, woocommerce_id: e.target.value }))}
-                placeholder="Ej: 15"
-              />
+          {FEATURE_WOOCOMMERCE && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cat-modal-wc-id">ID WooCommerce</Label>
+                <Input
+                  id="cat-modal-wc-id"
+                  type="text"
+                  inputMode="numeric"
+                  value={formData.woocommerce_id}
+                  onChange={(e) => setFormData((p) => ({ ...p, woocommerce_id: e.target.value }))}
+                  placeholder="Ej: 15"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cat-modal-wc-slug">Slug WooCommerce</Label>
+                <Input
+                  id="cat-modal-wc-slug"
+                  value={formData.woocommerce_slug}
+                  onChange={(e) => setFormData((p) => ({ ...p, woocommerce_slug: e.target.value }))}
+                  placeholder="Ej: celulares"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cat-modal-wc-slug">Slug WooCommerce</Label>
-              <Input
-                id="cat-modal-wc-slug"
-                value={formData.woocommerce_slug}
-                onChange={(e) => setFormData((p) => ({ ...p, woocommerce_slug: e.target.value }))}
-                placeholder="Ej: celulares"
-              />
-            </div>
-          </div>
+          )}
 
           {mode === "edit" && (
             <div className="flex items-center space-x-2">

@@ -15,6 +15,7 @@ import { useToast } from "@/contexts/ToastContext"
 import QRCodeSVG from "react-qr-code"
 import JsBarcode from "jsbarcode"
 import { generateProductCodes } from "@/lib/product-codes"
+import { FEATURE_WOOCOMMERCE } from "@/lib/features"
 
 interface ProductDetailModalProps {
   product: Product | null
@@ -465,20 +466,22 @@ export function ProductDetailModal({ product, isOpen, onClose, onDelete, onEdit,
                   Editar
                 </Button>
               )}
-              <Button
-                variant="outline"
-                className="bg-transparent hover:bg-blue-500/10 hover:text-blue-600 hover:border-blue-500/50 dark:hover:text-blue-400 transition-colors"
-                onClick={handleSyncToWooCommerce}
-                disabled={isSyncingWooCommerce}
-              >
-                {isSyncingWooCommerce ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                {isSyncingWooCommerce ? "Sincronizando…" : "Sync WooCommerce"}
-              </Button>
-              {wcProductUrl && (
+              {FEATURE_WOOCOMMERCE && (
+                <Button
+                  variant="outline"
+                  className="bg-transparent hover:bg-blue-500/10 hover:text-blue-600 hover:border-blue-500/50 dark:hover:text-blue-400 transition-colors"
+                  onClick={handleSyncToWooCommerce}
+                  disabled={isSyncingWooCommerce}
+                >
+                  {isSyncingWooCommerce ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  {isSyncingWooCommerce ? "Sincronizando…" : "Sync WooCommerce"}
+                </Button>
+              )}
+              {FEATURE_WOOCOMMERCE && wcProductUrl && (
                 <Button
                   variant="outline"
                   className="bg-transparent hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"
@@ -525,7 +528,10 @@ export function ProductDetailModal({ product, isOpen, onClose, onDelete, onEdit,
                   Este producto permite reserva: Permitir, pero se avisará al cliente.
                 </p>
                 <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                  Se puede vender con stock 0; en WooCommerce equivale a &quot;Permitir reservas&quot; con aviso al cliente.
+                  Se puede vender con stock 0
+                  {FEATURE_WOOCOMMERCE
+                    ? '; en WooCommerce equivale a "Permitir reservas" con aviso al cliente.'
+                    : "."}
                 </p>
               </div>
             )}
@@ -547,7 +553,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onDelete, onEdit,
                 <span className="font-mono">{displayedProduct.code || "-"}</span>
               </div>
 
-              {displayedProduct.woocommerce_id && (
+              {FEATURE_WOOCOMMERCE && displayedProduct.woocommerce_id && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">ID WooCommerce:</span>
                   <span className="font-mono text-sm">{displayedProduct.woocommerce_id}</span>

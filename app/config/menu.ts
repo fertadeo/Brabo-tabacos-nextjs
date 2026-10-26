@@ -107,13 +107,13 @@ export const MENU_GROUPS: MenuGroup[] = [
         href: "/productos/actualizacion-precios",
         requiredRoles: ['gerencia', 'admin']
       },
-      // { 
-      //   id: "categorias", 
-      //   label: "Categorías", 
-      //   icon: FolderTree, 
-      //   href: "/categorias",
-      //   requiredRoles: ['gerencia', 'ventas', 'logistica', 'finanzas']
-      // },
+      {
+        id: "categorias",
+        label: "Categorías",
+        icon: FolderTree,
+        href: "/categorias",
+        requiredRoles: ['gerencia', 'ventas', 'logistica', 'finanzas', 'admin']
+      },
       // { 
       //   id: "stock", 
       //   label: "Stock", 
