@@ -176,7 +176,21 @@ export async function getClientes(
         statusText: response.statusText,
         errorText
       });
-      throw new Error(`Error al obtener clientes: ${response.status} ${response.statusText}`);
+      let detail = `${response.status} ${response.statusText}`;
+      try {
+        const parsed = JSON.parse(errorText) as { message?: string; error?: string };
+        if (parsed?.message) detail = parsed.message;
+        else if (parsed?.error) detail = parsed.error;
+      } catch {
+        if (errorText && errorText.length < 200) detail = errorText;
+      }
+      if (response.status === 403) {
+        throw new Error('Sin permiso para listar clientes (rol no autorizado en la API).');
+      }
+      if (response.status === 401) {
+        throw new Error('Sesión expirada. Volvé a iniciar sesión.');
+      }
+      throw new Error(`Error al obtener clientes: ${detail}`);
     }
 
     const responseData: ApiResponse<ClientesResponse> = await response.json();
@@ -4435,7 +4449,8 @@ export interface Order {
   id: number;
   order_number?: string;
   woocommerce_order_id?: number;
-  canal_venta?: 'woocommerce' | 'local';
+  /** local = mostrador/oficina; preventa = repartidor en calle; woocommerce = tienda */
+  canal_venta?: 'woocommerce' | 'local' | 'preventa';
   json?: any; // JSON completo con todos los datos originales
   client_id: number;
   client_name?: string;
@@ -4507,6 +4522,8 @@ export interface CreateOrderRequest {
   client_id: number;
   order_date?: string;
   delivery_date?: string;
+  /** local (default) | preventa (calle) | woocommerce */
+  canal_venta?: 'woocommerce' | 'local' | 'preventa';
   status?:
     | 'pendiente_preparacion'
     | 'listo_despacho'
@@ -4523,6 +4540,9 @@ export interface CreateOrderRequest {
   responsible?: string;
   invoice?: boolean;
   delivery_address?: string;
+  delivery_city?: string;
+  delivery_contact?: string;
+  delivery_phone?: string;
   /** Se envía al API como `notes` */
   observations?: string;
   notes?: string;
@@ -4937,7 +4957,7 @@ export async function getOrders(params?: {
   search?: string;
   status?: 'pendiente_preparacion' | 'listo_despacho' | 'pagado' | 'aprobado' | 'en_proceso' | 'completado' | 'cancelado';
   client_id?: number;
-  canal_venta?: 'woocommerce' | 'local';
+  canal_venta?: 'woocommerce' | 'local' | 'preventa';
   remito_status?: 'sin_remito' | 'remito_generado' | 'remito_despachado' | 'remito_entregado';
   date_from?: string; // ISO 8601 format
   date_to?: string; // ISO 8601 format
@@ -5177,12 +5197,18 @@ export async function createOrder(data: CreateOrderRequest): Promise<{
   timestamp: string;
 }> {
   try {
+    const canal = data.canal_venta || 'local'
     const payload = {
       client_id: data.client_id,
       status: data.status || 'pendiente_preparacion',
-      canal_venta: 'local',
+      canal_venta: canal,
+      // Preventa/local: no empujar a WooCommerce
+      sync_to_woocommerce: canal === 'woocommerce',
       delivery_date: data.delivery_date || undefined,
       delivery_address: data.delivery_address || undefined,
+      delivery_city: data.delivery_city || undefined,
+      delivery_contact: data.delivery_contact || undefined,
+      delivery_phone: data.delivery_phone || undefined,
       notes: data.notes || data.observations || undefined,
       transport_company: data.transport_company || data.shipping_company || undefined,
       discount_total: data.final_discount != null ? Number(data.final_discount) : undefined,

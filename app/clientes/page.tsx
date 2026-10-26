@@ -58,7 +58,6 @@ export default function ClientesPage() {
       
       const statusParam = status === "all" ? undefined : (status as "active" | "inactive")
       const clientsResponse = await getClientes(page, 10, search, statusParam)
-      const statsResponse = await getClienteStats()
 
       const channelFilteredClients = channel === "all"
         ? clientsResponse.clients
@@ -68,13 +67,19 @@ export default function ClientesPage() {
       setClientes(channelFilteredClients)
       setPagination(clientsResponse.pagination)
 
-      console.log('✅ [COMPONENT] Estadísticas recibidas desde API:', statsResponse)
-      setStats(statsResponse)
+      try {
+        const statsResponse = await getClienteStats()
+        console.log('✅ [COMPONENT] Estadísticas recibidas desde API:', statsResponse)
+        setStats(statsResponse)
+      } catch (statsErr) {
+        console.warn('⚠️ [COMPONENT] Stats de clientes no disponibles:', statsErr)
+        setStats(null)
+      }
 
       console.log('🎉 [COMPONENT] Datos API cargados exitosamente')
     } catch (err) {
       console.error('💥 [COMPONENT] Error al cargar datos de clientes:', err)
-      setError('Error al cargar los datos')
+      setError(err instanceof Error ? err.message : 'Error al cargar los datos')
       setClientes([])
       setPagination({ page: 1, limit: 10, total: 0, totalPages: 0 })
       setStats(null)
