@@ -518,9 +518,7 @@ export default function PedidosPage() {
           isOpen={isNewOrderOpen}
           onClose={() => setIsNewOrderOpen(false)}
           onSuccess={() => {
-            setIsNewOrderOpen(false)
             loadData()
-            toast.success("Pedido creado exitosamente")
           }}
         />
 

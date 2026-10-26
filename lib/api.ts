@@ -4503,9 +4503,17 @@ export interface OrderStats {
 
 export interface CreateOrderRequest {
   client_id: number;
-  order_date: string;
+  order_date?: string;
   delivery_date?: string;
-  status?: 'pendiente' | 'en_proceso' | 'completado' | 'atrasado' | 'cancelado';
+  status?:
+    | 'pendiente_preparacion'
+    | 'listo_despacho'
+    | 'pagado'
+    | 'aprobado'
+    | 'pendiente'
+    | 'en_proceso'
+    | 'completado'
+    | 'cancelado';
   currency?: string;
   quote?: number;
   price_list?: string;
@@ -4513,16 +4521,20 @@ export interface CreateOrderRequest {
   responsible?: string;
   invoice?: boolean;
   delivery_address?: string;
+  /** Se envía al API como `notes` */
   observations?: string;
+  notes?: string;
+  /** Se envía al API como `transport_company` */
   shipping_company?: string;
+  transport_company?: string;
   packages_count?: number;
   final_discount?: number;
   items: CreateOrderItemRequest[];
 }
 
 export interface CreateOrderItemRequest {
-  product_id?: number;
-  description: string;
+  product_id: number;
+  description?: string;
   quantity: number;
   unit_price: number;
   /** Alícuota IVA: 21, 10.5 o 0. Default backend: 21. */
@@ -5166,17 +5178,44 @@ export async function createOrder(data: CreateOrderRequest): Promise<{
   timestamp: string;
 }> {
   try {
+    const payload = {
+      client_id: data.client_id,
+      status: data.status || 'pendiente_preparacion',
+      canal_venta: 'local',
+      delivery_date: data.delivery_date || undefined,
+      delivery_address: data.delivery_address || undefined,
+      notes: data.notes || data.observations || undefined,
+      transport_company: data.transport_company || data.shipping_company || undefined,
+      discount_total: data.final_discount != null ? Number(data.final_discount) : undefined,
+      items: data.items.map((item) => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        iva_rate: item.iva_rate,
+        notes: item.description || undefined,
+      })),
+      // Metadatos UI (quedan en json del pedido vía controller)
+      price_list: data.price_list,
+      order_date: data.order_date,
+    };
+
     const response = await fetch(`${getApiUrl()}orders`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
 
-    if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    const result = await response.json().catch(() => null);
+    if (!response.ok || result?.success === false) {
+      const details = Array.isArray(result?.errors)
+        ? result.errors.map((e: { msg?: string }) => e.msg).filter(Boolean).join('; ')
+        : null;
+      throw new Error(
+        details || result?.message || `Error ${response.status}: ${response.statusText}`
+      );
     }
 
-    return await response.json();
+    return result;
   } catch (error) {
     console.error('💥 [ORDERS] Error al crear pedido:', error);
     throw error;

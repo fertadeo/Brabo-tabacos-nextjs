@@ -1,43 +1,45 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useMemo } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useConfirmBeforeClose } from "@/lib/use-confirm-before-close"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { 
-  AlertTriangle, 
-  CheckCircle, 
-  Calendar, 
-  User, 
-  DollarSign, 
-  ShoppingCart, 
-  Plus,
-  Trash2,
-  ClipboardList,
-  MapPin,
-  HelpCircle,
-  X,
-  Package,
-  Percent,
-  Calculator,
-  Search,
-  ChevronDown
-} from "lucide-react"
-import { getClientes, type Cliente } from "@/lib/api"
+import { AlertTriangle, Loader2, Package, Plus, Search, Trash2 } from "lucide-react"
+import {
+  createOrder,
+  getClientes,
+  getProducts,
+  type Cliente,
+  type Product,
+} from "@/lib/api"
+import { ClientePicker } from "@/components/cliente-picker"
+import { getClienteDisplayName } from "@/lib/cliente-display"
 import { IvaRateSelect } from "@/components/iva-rate-select"
 import {
   clienteRequiresZeroItemIva,
   effectiveSaleItemIvaRate,
 } from "@/lib/facturacion-cliente-fiscal"
-import { computeSaleIvaBreakdown, DEFAULT_SALE_IVA_RATE, formatSaleIvaRateLabel, type SaleIvaRate } from "@/lib/sale-iva"
+import {
+  computeSaleIvaBreakdown,
+  DEFAULT_SALE_IVA_RATE,
+  formatSaleIvaRateLabel,
+  type SaleIvaRate,
+} from "@/lib/sale-iva"
+import {
+  DEFAULT_PRICE_LIST_SLUG,
+  PRICE_LIST_OPTIONS,
+  resolveProductListPrice,
+  type PriceListSlug,
+} from "@/lib/price-lists"
+import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface NewOrderModalProps {
   isOpen: boolean
@@ -45,312 +47,232 @@ interface NewOrderModalProps {
   onSuccess: () => void
 }
 
-interface OrderItem {
-  id: string
-  product: string
-  description: string
+type DraftLine = {
+  key: string
+  product_id: number
+  code: string
+  name: string
   quantity: number
-  ivaRate: SaleIvaRate
-  recovery: number
-  unitPrice: number
-  subtotal: number
+  unit_price: number
+  iva_rate: SaleIvaRate
 }
 
-interface FormData {
-  date: string
-  client: string
-  currency: string
-  quote: number
-  priceList: string
-  seller: string
-  responsible: string
-  invoice: boolean
-  deliveryAddress: string
-  observations: string
-  status: string
-  shippingCompany: string
-  packagesCount: number
-  finalDiscount: number
+function money(n: number) {
+  return n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10)
 }
 
 export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  const [clients, setClients] = useState<Cliente[]>([])
+
   const [clientSearch, setClientSearch] = useState("")
-  const [filteredClients, setFilteredClients] = useState<Cliente[]>([])
-  const [showClientDropdown, setShowClientDropdown] = useState(false)
-  const clientDropdownRef = useRef<HTMLDivElement>(null)
-  
-  const [formData, setFormData] = useState<FormData>({
-    date: new Date().toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).replace(/\//g, '/'),
-    client: "",
-    currency: "pesos",
-    quote: 1.0,
-    priceList: "general",
-    seller: "administracion",
-    responsible: "otro_contacto",
-    invoice: false,
-    deliveryAddress: "",
-    observations: "",
-    status: "para_preparar",
-    shippingCompany: "",
-    packagesCount: 0,
-    finalDiscount: 0
-  })
-
-  const [currentItem, setCurrentItem] = useState({
-    product: "",
-    description: "",
-    quantity: 1,
-    ivaRate: DEFAULT_SALE_IVA_RATE as SaleIvaRate,
-    recovery: 0.0,
-    unitPrice: 0
-  })
-
-  const [items, setItems] = useState<OrderItem[]>([])
+  const [clients, setClients] = useState<Cliente[]>([])
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null)
 
-  // Cargar clientes al abrir el modal
-  useEffect(() => {
-    if (isOpen) {
-      loadClients()
-    }
-  }, [isOpen])
+  const [products, setProducts] = useState<Product[]>([])
+  const [productSearch, setProductSearch] = useState("")
+  const [loadingProducts, setLoadingProducts] = useState(false)
 
-  // Filtrar clientes cuando cambie la búsqueda
-  useEffect(() => {
-    if (clientSearch.trim() === "") {
-      setFilteredClients(clients)
-    } else {
-      const filtered = clients.filter(client => 
-        client.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-        client.email.toLowerCase().includes(clientSearch.toLowerCase()) ||
-        client.code.toLowerCase().includes(clientSearch.toLowerCase())
-      )
-      setFilteredClients(filtered)
-    }
-  }, [clientSearch, clients])
+  const [priceList, setPriceList] = useState<PriceListSlug>(DEFAULT_PRICE_LIST_SLUG)
+  const [status, setStatus] = useState("pendiente_preparacion")
+  const [deliveryDate, setDeliveryDate] = useState("")
+  const [deliveryAddress, setDeliveryAddress] = useState("")
+  const [transportCompany, setTransportCompany] = useState("")
+  const [notes, setNotes] = useState("")
+  const [discountPercent, setDiscountPercent] = useState(0)
 
-  // Cerrar dropdown cuando se hace click fuera
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target as Node)) {
-        setShowClientDropdown(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
-
-  const loadClients = async () => {
-    try {
-      const response = await getClientes(1, 100)
-      setClients(response.clients || [])
-      setFilteredClients(response.clients || [])
-    } catch (error) {
-      console.error('Error al cargar clientes:', error)
-    }
-  }
-
-  const handleClientSelect = (client: Cliente) => {
-    setSelectedCliente(client)
-    setFormData(prev => ({ ...prev, client: client.name }))
-    setClientSearch(client.name)
-    setShowClientDropdown(false)
-    setFormData(prev => ({ ...prev, deliveryAddress: client.address || "" }))
-  }
-
-  const handleClientSearch = (value: string) => {
-    setClientSearch(value)
-    setShowClientDropdown(true)
-    if (value !== formData.client) {
-      setFormData(prev => ({ ...prev, client: "" }))
-      setSelectedCliente(null)
-    }
-  }
+  const [lines, setLines] = useState<DraftLine[]>([])
+  const [qtyDraft, setQtyDraft] = useState(1)
 
   const requiresZeroItemIva = useMemo(
     () => clienteRequiresZeroItemIva(selectedCliente),
     [selectedCliente]
   )
 
+  const reset = useCallback(() => {
+    setError(null)
+    setClientSearch("")
+    setClients([])
+    setSelectedCliente(null)
+    setProductSearch("")
+    setPriceList(DEFAULT_PRICE_LIST_SLUG)
+    setStatus("pendiente_preparacion")
+    setDeliveryDate("")
+    setDeliveryAddress("")
+    setTransportCompany("")
+    setNotes("")
+    setDiscountPercent(0)
+    setLines([])
+    setQtyDraft(1)
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    setLoadingProducts(true)
+    void getProducts(1, 500, true)
+      .then((data) => {
+        if (cancelled) return
+        const list = Array.isArray(data) ? data : data.products || []
+        setProducts(list.filter((p) => p.is_active !== false))
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("No se pudieron cargar productos")
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProducts(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (clientSearch.trim().length < 2) {
+      setClients([])
+      return
+    }
+    const t = setTimeout(() => {
+      getClientes(1, 25, clientSearch.trim(), "active")
+        .then((r) => setClients(r.clients || []))
+        .catch(() => setClients([]))
+    }, 280)
+    return () => clearTimeout(t)
+  }, [clientSearch])
+
   useEffect(() => {
     if (!requiresZeroItemIva) return
-    setItems((prev) =>
-      prev.some((item) => item.ivaRate !== 0)
-        ? prev.map((item) => (item.ivaRate === 0 ? item : { ...item, ivaRate: 0 as SaleIvaRate }))
+    setLines((prev) =>
+      prev.some((l) => l.iva_rate !== 0)
+        ? prev.map((l) => (l.iva_rate === 0 ? l : { ...l, iva_rate: 0 as SaleIvaRate }))
         : prev
     )
-    setCurrentItem((prev) => (prev.ivaRate === 0 ? prev : { ...prev, ivaRate: 0 }))
-  }, [requiresZeroItemIva, selectedCliente?.id])
+  }, [requiresZeroItemIva])
 
-  const handleInputChange = (field: keyof FormData, value: string | number | boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
-    if (error) setError(null)
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase()
+    if (q.length < 1) return products.slice(0, 12)
+    return products
+      .filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          String(p.code || "").toLowerCase().includes(q) ||
+          String(p.barcode || "").toLowerCase().includes(q)
+      )
+      .slice(0, 20)
+  }, [products, productSearch])
+
+  const lineProductIds = useMemo(() => new Set(lines.map((l) => l.product_id)), [lines])
+
+  function addProduct(product: Product) {
+    const unit = resolveProductListPrice(product, priceList)
+    const iva = effectiveSaleItemIvaRate(
+      (Number(product.iva_rate) as SaleIvaRate) || DEFAULT_SALE_IVA_RATE,
+      selectedCliente
+    )
+    const qty = Math.max(1, Math.floor(qtyDraft) || 1)
+    setLines((prev) => {
+      const existing = prev.find((l) => l.product_id === product.id)
+      if (existing) {
+        return prev.map((l) =>
+          l.product_id === product.id ? { ...l, quantity: l.quantity + qty } : l
+        )
+      }
+      return [
+        ...prev,
+        {
+          key: `p-${product.id}`,
+          product_id: product.id,
+          code: String(product.code || ""),
+          name: product.name,
+          quantity: qty,
+          unit_price: unit,
+          iva_rate: iva,
+        },
+      ]
+    })
+    setProductSearch("")
+    setQtyDraft(1)
+    setError(null)
   }
 
-  const handleItemChange = (field: keyof typeof currentItem, value: string | number) => {
-    setCurrentItem(prev => ({
-      ...prev,
-      [field]: value
-    }))
+  function updateLine(key: string, patch: Partial<DraftLine>) {
+    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)))
   }
 
-  const addItem = () => {
-    if (!currentItem.product || !currentItem.description) {
-      setError("Debe completar producto y descripción")
+  function removeLine(key: string) {
+    setLines((prev) => prev.filter((l) => l.key !== key))
+  }
+
+  const totals = useMemo(() => {
+    const subtotal = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0)
+    const ivaBreakdown = computeSaleIvaBreakdown(
+      lines.map((l) => ({ subtotal: l.quantity * l.unit_price, iva_rate: l.iva_rate }))
+    )
+    const discount = subtotal * (Math.min(100, Math.max(0, discountPercent)) / 100)
+    return {
+      subtotal,
+      discount,
+      netoGravado: ivaBreakdown.netoGravado,
+      ivaTotal: ivaBreakdown.ivaTotal,
+      total: Math.max(0, subtotal - discount),
+      units: lines.reduce((s, l) => s + l.quantity, 0),
+    }
+  }, [lines, discountPercent])
+
+  async function handleSubmit() {
+    if (!selectedCliente) {
+      setError("Seleccioná un cliente")
+      return
+    }
+    if (lines.length === 0) {
+      setError("Agregá al menos un producto del catálogo")
       return
     }
 
-    const subtotal = currentItem.quantity * currentItem.unitPrice
-    const newItem: OrderItem = {
-      id: Date.now().toString(),
-      product: currentItem.product,
-      description: currentItem.description,
-      quantity: currentItem.quantity,
-      ivaRate: effectiveSaleItemIvaRate(currentItem.ivaRate, selectedCliente),
-      recovery: currentItem.recovery,
-      unitPrice: currentItem.unitPrice,
-      subtotal
-    }
-
-    setItems(prev => [...prev, newItem])
-    
-    // Resetear campos del item actual
-    setCurrentItem({
-      product: "",
-      description: "",
-      quantity: 1,
-      ivaRate: requiresZeroItemIva ? 0 : DEFAULT_SALE_IVA_RATE,
-      recovery: 0.0,
-      unitPrice: 0
-    })
-  }
-
-  const removeItem = (id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id))
-  }
-
-  const calculateTotals = () => {
-    const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0)
-    const ivaBreakdown = computeSaleIvaBreakdown(
-      items.map((item) => ({ subtotal: item.subtotal, iva_rate: item.ivaRate }))
-    )
-    const discount = subtotal * (formData.finalDiscount / 100)
-    const total = subtotal - discount
-
-    return {
-      subtotal,
-      netoGravado: ivaBreakdown.netoGravado,
-      iva21: ivaBreakdown.iva21,
-      iva105: ivaBreakdown.iva105,
-      exempt: ivaBreakdown.ivaExento,
-      ivaTotal: ivaBreakdown.ivaTotal,
-      discount,
-      total
-    }
-  }
-
-  const totals = calculateTotals()
-
-  const validateForm = () => {
-    if (!formData.client.trim()) {
-      setError("Debe seleccionar un cliente")
-      return false
-    }
-    if (items.length === 0) {
-      setError("Debe agregar al menos un producto")
-      return false
-    }
-    return true
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!validateForm()) return
-
     setLoading(true)
     setError(null)
-
     try {
-      // Aquí iría la lógica para enviar el pedido a la API
-      console.log('Creando pedido:', { formData, items, totals })
-      
-      setSuccess(true)
-      setTimeout(() => {
-        setSuccess(false)
-        onSuccess()
-        onClose()
-        resetForm()
-      }, 1500)
-
+      await createOrder({
+        client_id: selectedCliente.id,
+        order_date: todayISO(),
+        status: status as any,
+        delivery_date: deliveryDate || undefined,
+        delivery_address: deliveryAddress.trim() || undefined,
+        observations: notes.trim() || undefined,
+        shipping_company: transportCompany.trim() || undefined,
+        final_discount: discountPercent || undefined,
+        price_list: priceList,
+        items: lines.map((l) => ({
+          product_id: l.product_id,
+          description: l.name,
+          quantity: l.quantity,
+          unit_price: l.unit_price,
+          iva_rate: l.iva_rate,
+        })),
+      })
+      toast.success("Pedido creado")
+      reset()
+      onSuccess()
+      onClose()
     } catch (err) {
-      console.error('Error al crear pedido:', err)
-      setError(err instanceof Error ? err.message : 'Error desconocido al crear el pedido')
+      const msg = err instanceof Error ? err.message : "No se pudo crear el pedido"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
   }
 
-  const resetForm = () => {
-    setFormData({
-      date: new Date().toLocaleDateString('es-AR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      }).replace(/\//g, '/'),
-      client: "",
-      currency: "pesos",
-      quote: 1.0,
-      priceList: "general",
-      seller: "administracion",
-      responsible: "otro_contacto",
-      invoice: false,
-      deliveryAddress: "",
-      observations: "",
-      status: "para_preparar",
-      shippingCompany: "",
-      packagesCount: 0,
-      finalDiscount: 0
-    })
-    setItems([])
-    setCurrentItem({
-      product: "",
-      description: "",
-      quantity: 1,
-      ivaRate: DEFAULT_SALE_IVA_RATE,
-      recovery: 0.0,
-      unitPrice: 0
-    })
-    setClientSearch("")
-    setShowClientDropdown(false)
-    setSelectedCliente(null)
-    setError(null)
-    setSuccess(false)
-  }
-
   const handleClose = () => {
-    if (!loading) {
-      setError(null)
-      setSuccess(false)
-      onClose()
-    }
+    if (loading) return
+    reset()
+    onClose()
   }
-
-  const selectedClient = clients.find(c => c.name === formData.client)
 
   const [handleOpenChange, confirmDialog] = useConfirmBeforeClose((open) => {
     if (!open) handleClose()
@@ -358,535 +280,343 @@ export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps
 
   return (
     <>
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-6 -m-6 mb-6 rounded-t-lg border-b border-slate-700">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-              <div className="p-2 bg-turquoise-600 rounded-lg">
-                <ClipboardList className="h-6 w-6" />
-              </div>
-              <span>Alta Pedido</span>
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[92vh] overflow-hidden flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Package className="h-5 w-5 text-primary" />
+              Nuevo pedido
             </DialogTitle>
-            <div className="flex items-center gap-1">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
-                title="Ayuda"
-              >
-                <HelpCircle className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-slate-300 hover:text-white hover:bg-slate-700 transition-colors" 
-                onClick={handleClose}
-                title="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </DialogHeader>
+            <DialogDescription>
+              Armá el pedido con productos del catálogo (cigarrillos, golosinas, medicamentos). Se
+              guarda en el ERP para preparar y despachar.
+            </DialogDescription>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Datos Generales del Pedido */}
-          <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm">
-            <CardContent className="p-6">
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-turquoise-600" />
-                  Datos Generales
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Información básica del pedido</p>
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+            {error ? (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="date" className="text-sm font-medium text-slate-700 dark:text-slate-300">Fecha</Label>
-                  <div className="relative">
-                    <Input
-                      id="date"
-                      value={formData.date}
-                      onChange={(e) => handleInputChange('date', e.target.value)}
-                      className="pl-8"
-                    />
-                    <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
+            ) : null}
 
-                <div className="space-y-2 relative">
-                  <Label htmlFor="client" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Cliente *
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold">Cliente</h3>
+              <ClientePicker
+                searchValue={clientSearch}
+                onSearchChange={(value) => {
+                  setClientSearch(value)
+                  if (selectedCliente && value.trim() !== getClienteDisplayName(selectedCliente)) {
+                    setSelectedCliente(null)
+                  }
+                  if (!value.trim()) setSelectedCliente(null)
+                }}
+                results={clients}
+                selectedCliente={selectedCliente}
+                onSelect={(cliente) => {
+                  setSelectedCliente(cliente)
+                  setClientSearch(getClienteDisplayName(cliente))
+                  setClients([])
+                  setDeliveryAddress(cliente.address || "")
+                  setError(null)
+                }}
+                onClear={() => {
+                  setSelectedCliente(null)
+                  setClientSearch("")
+                  setClients([])
+                }}
+                placeholder="Buscar por nombre, CUIT o código…"
+                clearLabel="Quitar cliente"
+              />
+            </section>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label>Lista de precios</Label>
+                <Select
+                  value={priceList}
+                  onValueChange={(v) => {
+                    const slug = v as PriceListSlug
+                    setPriceList(slug)
+                    setLines((prev) =>
+                      prev.map((l) => {
+                        const p = products.find((x) => x.id === l.product_id)
+                        if (!p) return l
+                        return { ...l, unit_price: resolveProductListPrice(p, slug) }
+                      })
+                    )
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRICE_LIST_OPTIONS.map((o) => (
+                      <SelectItem key={o.slug} value={o.slug}>
+                        {o.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Estado</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendiente_preparacion">Para preparar</SelectItem>
+                    <SelectItem value="en_proceso">En proceso</SelectItem>
+                    <SelectItem value="listo_despacho">Listo despacho</SelectItem>
+                    <SelectItem value="aprobado">Aprobado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="delivery-date">Entrega (opcional)</Label>
+                <Input
+                  id="delivery-date"
+                  type="date"
+                  value={deliveryDate}
+                  onChange={(e) => setDeliveryDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="disc">Desc. final %</Label>
+                <Input
+                  id="disc"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  value={discountPercent}
+                  onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="addr">Domicilio de entrega</Label>
+                <Input
+                  id="addr"
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  placeholder="Calle, localidad…"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="transport">Transporte</Label>
+                <Input
+                  id="transport"
+                  value={transportCompany}
+                  onChange={(e) => setTransportCompany(e.target.value)}
+                  placeholder="Empresa / método"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="notes">Observaciones</Label>
+              <Textarea
+                id="notes"
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Condiciones, horario, referencias…"
+              />
+            </div>
+
+            <Separator />
+
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <h3 className="text-sm font-semibold">Productos</h3>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="qty-add" className="text-xs text-muted-foreground">
+                    Cant. al agregar
                   </Label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Search className="h-4 w-4 text-slate-400" />
-                    </div>
-                    <Input
-                      id="client"
-                      value={clientSearch}
-                      onChange={(e) => handleClientSearch(e.target.value)}
-                      onFocus={() => setShowClientDropdown(true)}
-                      placeholder="Buscar cliente por nombre, email o código..."
-                      className="pl-10 pr-10 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 focus:border-turquoise-500 focus:ring-turquoise-500"
-                    />
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <ChevronDown className="h-4 w-4 text-slate-400" />
-                    </div>
-                    
-                    {/* Dropdown de clientes */}
-                    {showClientDropdown && filteredClients.length > 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-lg max-h-60 overflow-auto">
-                        {filteredClients.map((client) => (
-                          <div
-                            key={client.id}
-                            onClick={() => handleClientSelect(client)}
-                            className="px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-b-0"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="font-medium text-slate-900 dark:text-slate-100">
-                                  {client.name}
-                                </div>
-                                <div className="text-sm text-slate-500 dark:text-slate-400">
-                                  {client.email}
-                                </div>
-                              </div>
-                              <Badge variant="outline" className="text-xs">
-                                {client.code}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Mensaje cuando no hay resultados */}
-                    {showClientDropdown && filteredClients.length === 0 && clientSearch.trim() !== "" && (
-                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-lg">
-                        <div className="px-4 py-3 text-slate-500 dark:text-slate-400 text-sm">
-                          No se encontraron clientes
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="currency" className="text-sm font-medium text-slate-700 dark:text-slate-300">Moneda</Label>
-                  <Select value={formData.currency} onValueChange={(value) => handleInputChange('currency', value)}>
-                    <SelectTrigger className="bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pesos">Pesos</SelectItem>
-                      <SelectItem value="dolares">Dólares</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="quote" className="text-sm font-medium text-slate-700 dark:text-slate-300">Cotiz.</Label>
                   <Input
-                    id="quote"
+                    id="qty-add"
                     type="number"
-                    step="0.01"
-                    value={formData.quote}
-                    onChange={(e) => handleInputChange('quote', parseFloat(e.target.value) || 0)}
-                    className="bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="priceList" className="text-sm font-medium text-slate-700 dark:text-slate-300">Lista de Precios</Label>
-                  <Select value={formData.priceList} onValueChange={(value) => handleInputChange('priceList', value)}>
-                    <SelectTrigger className="bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general">General</SelectItem>
-                      <SelectItem value="mayorista">Mayorista</SelectItem>
-                      <SelectItem value="minorista">Minorista</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Información de Venta y Entrega */}
-          <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm">
-            <CardContent className="p-6">
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <User className="h-5 w-5 text-turquoise-600" />
-                  Información de Venta y Entrega
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Detalles de venta y entrega del pedido</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="seller" className="text-sm font-medium text-slate-700 dark:text-slate-300">Vendedor</Label>
-                  <Select value={formData.seller} onValueChange={(value) => handleInputChange('seller', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="administracion">Administración C</SelectItem>
-                      <SelectItem value="ventas">Ventas</SelectItem>
-                      <SelectItem value="comercial">Comercial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="responsible" className="text-sm font-medium">Elija el encargado</Label>
-                  <Select value={formData.responsible} onValueChange={(value) => handleInputChange('responsible', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="otro_contacto">Otro Contacto</SelectItem>
-                      <SelectItem value="cliente">Cliente</SelectItem>
-                      <SelectItem value="vendedor">Vendedor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invoice" className="text-sm font-medium">Facturar</Label>
-                  <div className="flex gap-4 mt-2">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="invoice"
-                        checked={formData.invoice}
-                        onChange={() => handleInputChange('invoice', true)}
-                        className="text-turquoise-600"
-                      />
-                      <span className="text-sm">Sí</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="invoice"
-                        checked={!formData.invoice}
-                        onChange={() => handleInputChange('invoice', false)}
-                        className="text-turquoise-600"
-                      />
-                      <span className="text-sm">No</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="status" className="text-sm font-medium">Estado</Label>
-                  <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="para_preparar">Para preparar</SelectItem>
-                      <SelectItem value="en_proceso">En Proceso</SelectItem>
-                      <SelectItem value="listo">Listo</SelectItem>
-                      <SelectItem value="entregado">Entregado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="deliveryAddress" className="text-sm font-medium">Domicilio de Entrega</Label>
-                  <Input
-                    id="deliveryAddress"
-                    value={formData.deliveryAddress}
-                    onChange={(e) => handleInputChange('deliveryAddress', e.target.value)}
-                    placeholder="SELECCIONE UN CLIENTE"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="observations" className="text-sm font-medium">Observaciones</Label>
-                  <Input
-                    id="observations"
-                    value={formData.observations}
-                    onChange={(e) => handleInputChange('observations', e.target.value)}
+                    min={1}
+                    className="h-8 w-20"
+                    value={qtyDraft}
+                    onChange={(e) => setQtyDraft(parseInt(e.target.value, 10) || 1)}
                   />
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Sección de Productos */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Agregar Productos
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Producto</Label>
-                    <Input
-                      value={currentItem.product}
-                      onChange={(e) => handleItemChange('product', e.target.value)}
-                      placeholder="Buscar producto..."
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Alícuota IVA</Label>
-                    <IvaRateSelect
-                      value={requiresZeroItemIva ? 0 : currentItem.ivaRate}
-                      onChange={(rate) => handleItemChange("ivaRate", rate)}
-                      disabled={requiresZeroItemIva}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Cantidad</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={currentItem.quantity}
-                      onChange={(e) => handleItemChange('quantity', parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">% Rec.</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={currentItem.recovery}
-                      onChange={(e) => handleItemChange('recovery', parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">P.Unitario</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={currentItem.unitPrice}
-                      onChange={(e) => handleItemChange('unitPrice', parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">&nbsp;</Label>
-                    <Button 
-                      type="button" 
-                      onClick={addItem}
-                      className="w-full"
-                      disabled={!currentItem.product || !currentItem.description}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Añadir
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Descripción</Label>
-                  <Input
-                    value={currentItem.description}
-                    onChange={(e) => handleItemChange('description', e.target.value)}
-                    placeholder="Descripción del producto..."
-                  />
-                </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder="Buscar por nombre, código o código de barras…"
+                  className="pl-9"
+                />
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Tabla de Productos */}
-          {items.length > 0 && (
-            <Card>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Productos del Pedido</h3>
-                  
-                  <div className="border rounded-lg">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Cant.</TableHead>
-                          <TableHead>Descripción</TableHead>
-                          <TableHead>Alicuota</TableHead>
-                          <TableHead>% Rec.</TableHead>
-                          <TableHead>P.Unitario</TableHead>
-                          <TableHead>Sub Total</TableHead>
-                          <TableHead>Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {items.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>{item.quantity.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                            <TableCell className="font-medium">{item.description}</TableCell>
-                            <TableCell>{formatSaleIvaRateLabel(item.ivaRate)}</TableCell>
-                            <TableCell>{item.recovery.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                            <TableCell>$ {item.unitPrice.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                            <TableCell className="font-medium">$ {item.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                            <TableCell>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => removeItem(item.id)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  <div className="text-sm text-muted-foreground">
-                    {items.length} items {items.reduce((sum, item) => sum + item.quantity, 0)} unidades
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Resumen y Totales */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Calculator className="h-5 w-5" />
-                  Resumen del Pedido
-                </h3>
-
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Subtotal (con IVA)</Label>
-                    <div className="text-lg font-semibold">$ {totals.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Neto gravado</Label>
-                    <div className="text-lg font-semibold">$ {totals.netoGravado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">IVA 21%</Label>
-                    <div className="text-lg font-semibold">$ {totals.iva21.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">IVA 10,5%</Label>
-                    <div className="text-lg font-semibold">$ {totals.iva105.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Exento</Label>
-                    <div className="text-lg font-semibold">$ {totals.exempt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Rec.(%)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.finalDiscount}
-                      onChange={(e) => handleInputChange('finalDiscount', parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Rec.($) Final</Label>
-                    <div className="text-lg font-semibold">$ {totals.discount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Total</Label>
-                    <div className="text-2xl font-bold text-turquoise-600">
-                      $ {totals.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="shippingCompany" className="text-sm font-medium">Empresa de Transporte</Label>
-                    <Input
-                      id="shippingCompany"
-                      value={formData.shippingCompany}
-                      onChange={(e) => handleInputChange('shippingCompany', e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="packagesCount" className="text-sm font-medium">Cantidad de Bultos</Label>
-                    <Input
-                      id="packagesCount"
-                      type="number"
-                      value={formData.packagesCount}
-                      onChange={(e) => handleInputChange('packagesCount', parseInt(e.target.value) || 0)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Mensajes de Error/Success */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-              <span className="text-red-700">{error}</span>
-            </div>
-          )}
-
-          {success && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <span className="text-green-700">Pedido creado exitosamente</span>
-            </div>
-          )}
-
-          {/* Botones de Acción */}
-          <div className="flex justify-end gap-4">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleClose}
-              disabled={loading}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={loading || items.length === 0}
-              className="bg-gradient-to-r from-turquoise-500 to-turquoise-600 hover:from-turquoise-600 hover:to-turquoise-700"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creando...
-                </>
+              {loadingProducts ? (
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando catálogo…
+                </p>
               ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Aceptar
-                </>
+                <ul className="max-h-40 overflow-y-auto rounded-lg border divide-y">
+                  {filteredProducts.length === 0 ? (
+                    <li className="px-3 py-4 text-sm text-muted-foreground text-center">
+                      Sin resultados
+                    </li>
+                  ) : (
+                    filteredProducts.map((p) => {
+                      const price = resolveProductListPrice(p, priceList)
+                      const inCart = lineProductIds.has(p.id)
+                      return (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            onClick={() => addProduct(p)}
+                            className={cn(
+                              "w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-muted/60 transition-colors",
+                              inCart && "bg-primary/5"
+                            )}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">{p.name}</p>
+                              <p className="text-xs text-muted-foreground font-mono">
+                                {p.code || "—"}
+                                {p.stock != null ? ` · stock ${p.stock}` : ""}
+                              </p>
+                            </div>
+                            <span className="text-sm tabular-nums shrink-0">${money(price)}</span>
+                            <Plus className="h-4 w-4 text-primary shrink-0" />
+                          </button>
+                        </li>
+                      )
+                    })
+                  )}
+                </ul>
               )}
-            </Button>
+
+              {lines.length > 0 ? (
+                <div className="rounded-lg border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Producto</TableHead>
+                        <TableHead className="w-24 text-right">Cant.</TableHead>
+                        <TableHead className="w-28">IVA</TableHead>
+                        <TableHead className="w-28 text-right">P. unit.</TableHead>
+                        <TableHead className="w-28 text-right">Subtotal</TableHead>
+                        <TableHead className="w-12" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lines.map((l) => (
+                        <TableRow key={l.key}>
+                          <TableCell>
+                            <div className="font-medium text-sm">{l.name}</div>
+                            {l.code ? (
+                              <Badge variant="outline" className="mt-0.5 font-mono text-[10px]">
+                                {l.code}
+                              </Badge>
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              min={1}
+                              className="h-8 text-right"
+                              value={l.quantity}
+                              onChange={(e) =>
+                                updateLine(l.key, {
+                                  quantity: Math.max(1, parseInt(e.target.value, 10) || 1),
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <IvaRateSelect
+                              value={requiresZeroItemIva ? 0 : l.iva_rate}
+                              onChange={(rate) => updateLine(l.key, { iva_rate: rate })}
+                              size="sm"
+                              disabled={requiresZeroItemIva}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              className="h-8 text-right"
+                              value={l.unit_price}
+                              onChange={(e) =>
+                                updateLine(l.key, {
+                                  unit_price: Math.max(0, parseFloat(e.target.value) || 0),
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-sm font-medium">
+                            ${money(l.quantity * l.unit_price)}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => removeLine(l.key)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
+                  Todavía no hay líneas. Buscá y agregá productos del catálogo.
+                </p>
+              )}
+            </section>
           </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-    {confirmDialog}
+
+          <DialogFooter className="shrink-0 border-t px-6 py-4 flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="text-sm text-muted-foreground space-y-0.5 w-full sm:w-auto">
+              <p>
+                {lines.length} ítem{lines.length === 1 ? "" : "s"} · {totals.units} u.
+                {totals.discount > 0 ? ` · desc. $${money(totals.discount)}` : ""}
+              </p>
+              <p className="text-base font-semibold text-foreground tabular-nums">
+                Total ${money(totals.total)}
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  (IVA ref. ${money(totals.ivaTotal)} ·{" "}
+                  {requiresZeroItemIva ? formatSaleIvaRateLabel(0) : "según líneas"})
+                </span>
+              </p>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto justify-end">
+              <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading || !selectedCliente || lines.length === 0}
+              >
+                {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Guardar pedido
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {confirmDialog}
     </>
   )
 }
