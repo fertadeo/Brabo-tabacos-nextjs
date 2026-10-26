@@ -15,13 +15,18 @@ import {
   createSale,
   getPosApiKey,
   getAccessToken,
+  getPosQuantityDiscounts,
   type Product,
   type Cliente,
   type SalePaymentMethod,
   type SaleResponseData,
   type CreateSaleRequest,
   type SaleCurrency,
+  type PosQuantityDiscount,
 } from "@/lib/api"
+import {
+  resolveUnitPriceWithDiscount,
+} from "@/lib/pos-quantity-discounts"
 import { Search, Plus, Receipt, User, CreditCard, Banknote, Wallet, AlertCircle, LayoutGrid, LayoutList, Maximize2, Loader2, Check, DollarSign, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { getProductImageUrl } from "@/lib/product-image-utils"
@@ -137,6 +142,7 @@ export default function PuntoVentaPage() {
   const [addingProductId, setAddingProductId] = useState<number | null>(null)
   const [addedProductId, setAddedProductId] = useState<number | null>(null)
   const [priceListSlug, setPriceListSlug] = useState<PriceListSlug>(DEFAULT_PRICE_LIST_SLUG)
+  const [quantityDiscounts, setQuantityDiscounts] = useState<PosQuantityDiscount[]>([])
   const [saleCurrency, setSaleCurrency] = useState<SaleCurrency>("ARS")
   const [exchangeRate, setExchangeRate] = useState<number | null>(null)
   const [exchangeRateInput, setExchangeRateInput] = useState("")
@@ -176,6 +182,12 @@ export default function PuntoVentaPage() {
 
   useEffect(() => {
     loadProducts()
+  }, [])
+
+  useEffect(() => {
+    getPosQuantityDiscounts(true)
+      .then(setQuantityDiscounts)
+      .catch(() => setQuantityDiscounts([]))
   }, [])
 
   async function loadSuggestedExchangeRate() {
@@ -327,8 +339,50 @@ export default function PuntoVentaPage() {
     }
   }
 
-  function catalogArsPrice(product: Product): number {
-    return resolveProductListPrice(product, priceListSlug)
+  function catalogArsPrice(product: Product, slug: PriceListSlug = priceListSlug): number {
+    return resolveProductListPrice(product, slug)
+  }
+
+  function buildCatalogPricing(
+    product: Product,
+    quantity: number,
+    slug: PriceListSlug,
+    overridden?: { unit_price: number; ars_unit_price?: number }
+  ) {
+    const arsList = catalogArsPrice(product, slug)
+    if (overridden) {
+      return {
+        list_unit_price:
+          saleCurrency === "USD" && exchangeRate && exchangeRate > 0
+            ? arsToUsd(arsList, exchangeRate)
+            : arsList,
+        unit_price: overridden.unit_price,
+        discount_percent: 0,
+        price_overridden: true as const,
+        ars_list_unit_price: arsList,
+        ars_unit_price: overridden.ars_unit_price ?? arsList,
+      }
+    }
+    const priced = resolveUnitPriceWithDiscount(arsList, quantity, slug, quantityDiscounts)
+    if (saleCurrency === "USD" && exchangeRate && exchangeRate > 0) {
+      const listUsd = arsToUsd(arsList, exchangeRate)
+      return {
+        list_unit_price: listUsd,
+        unit_price: arsToUsd(priced.unit_price, exchangeRate),
+        discount_percent: priced.discount_percent,
+        price_overridden: false as const,
+        ars_list_unit_price: arsList,
+        ars_unit_price: priced.unit_price,
+      }
+    }
+    return {
+      list_unit_price: arsList,
+      unit_price: priced.unit_price,
+      discount_percent: priced.discount_percent,
+      price_overridden: false as const,
+      ars_list_unit_price: undefined,
+      ars_unit_price: undefined,
+    }
   }
 
   function applyPriceListToCart(nextSlug: PriceListSlug) {
@@ -336,15 +390,11 @@ export default function PuntoVentaPage() {
     setCart((prev) =>
       prev.map((line) => {
         if (line.kind !== "catalog") return line
-        const arsPrice = resolveProductListPrice(line.product, nextSlug)
-        if (saleCurrency === "USD" && exchangeRate && exchangeRate > 0) {
-          return {
-            ...line,
-            unit_price: arsToUsd(arsPrice, exchangeRate),
-            ars_unit_price: arsPrice,
-          }
+        const pricing = buildCatalogPricing(line.product, line.quantity, nextSlug)
+        return {
+          ...line,
+          ...pricing,
         }
-        return { ...line, unit_price: arsPrice }
       })
     )
   }
@@ -352,11 +402,6 @@ export default function PuntoVentaPage() {
   function addToCartInternal(product: Product, qty = 1) {
     if (!canAddPosCatalogProduct(product)) return
     const maxQty = posCatalogMaxQuantity(product)
-    const arsPrice = catalogArsPrice(product)
-    const unitPrice =
-      saleCurrency === "USD" && exchangeRate && exchangeRate > 0
-        ? arsToUsd(arsPrice, exchangeRate)
-        : arsPrice
     setCart((prev) => {
       const existing = prev.find(
         (i) => i.kind === "catalog" && i.product.id === product.id
@@ -368,23 +413,30 @@ export default function PuntoVentaPage() {
             (i) => !(i.kind === "catalog" && i.product.id === product.id)
           )
         }
+        const pricing = existing.price_overridden
+          ? buildCatalogPricing(product, newQty, priceListSlug, {
+              unit_price: existing.unit_price,
+              ars_unit_price: existing.ars_unit_price,
+            })
+          : buildCatalogPricing(product, newQty, priceListSlug)
         return prev.map((i) =>
           i.kind === "catalog" && i.product.id === product.id
-            ? { ...i, quantity: newQty }
+            ? { ...i, quantity: newQty, ...pricing }
             : i
         )
       }
-      const line = {
-        kind: "catalog" as const,
-        product,
-        quantity: Math.min(qty, maxQty),
-        unit_price: unitPrice,
-        iva_rate: effectiveSaleItemIvaRate(productIvaRate(product), selectedCliente),
-      }
-      if (saleCurrency === "USD") {
-        return [...prev, { ...line, ars_unit_price: arsPrice }]
-      }
-      return [...prev, line]
+      const quantity = Math.min(qty, maxQty)
+      const pricing = buildCatalogPricing(product, quantity, priceListSlug)
+      return [
+        ...prev,
+        {
+          kind: "catalog" as const,
+          product,
+          quantity,
+          iva_rate: effectiveSaleItemIvaRate(productIvaRate(product), selectedCliente),
+          ...pricing,
+        },
+      ]
     })
   }
 
@@ -424,7 +476,13 @@ export default function PuntoVentaPage() {
         if (getPosCartLineKey(i) !== lineKey) return i
         if (i.kind === "catalog") {
           const capped = Math.min(newQty, posCatalogMaxQuantity(i.product))
-          return { ...i, quantity: capped }
+          const pricing = i.price_overridden
+            ? buildCatalogPricing(i.product, capped, priceListSlug, {
+                unit_price: i.unit_price,
+                ars_unit_price: i.ars_unit_price,
+              })
+            : buildCatalogPricing(i.product, capped, priceListSlug)
+          return { ...i, quantity: capped, ...pricing }
         }
         return { ...i, quantity: newQty }
       })
@@ -442,6 +500,14 @@ export default function PuntoVentaPage() {
         if (getPosCartLineKey(i) !== lineKey) return i
         if (saleCurrency === "USD" && exchangeRate && exchangeRate > 0) {
           return applyUsdUnitPriceEdit(i, unit_price, exchangeRate)
+        }
+        if (i.kind === "catalog") {
+          return {
+            ...i,
+            unit_price,
+            price_overridden: true,
+            discount_percent: 0,
+          }
         }
         return { ...i, unit_price }
       })

@@ -1891,6 +1891,105 @@ export async function getPriceLists(): Promise<PriceList[]> {
   return Array.isArray(responseData.data) ? responseData.data : []
 }
 
+export interface PosQuantityDiscount {
+  id: number
+  name: string
+  min_quantity: number
+  discount_percent: number
+  price_list_slug: string | null
+  is_active: boolean
+  sort_order: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface CreatePosQuantityDiscountData {
+  name: string
+  min_quantity: number
+  discount_percent: number
+  price_list_slug?: string | null
+  is_active?: boolean
+  sort_order?: number
+}
+
+export type UpdatePosQuantityDiscountData = Partial<CreatePosQuantityDiscountData>
+
+/** GET /api/pos-quantity-discounts */
+export async function getPosQuantityDiscounts(activeOnly = false): Promise<PosQuantityDiscount[]> {
+  const apiUrl = getApiUrl()
+  const token = getAccessToken()
+  const q = activeOnly ? "?active=1" : ""
+  const response = await fetch(`${apiUrl}pos-quantity-discounts${q}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  const responseData: ApiResponse<PosQuantityDiscount[]> = await response.json()
+  if (!response.ok) {
+    throw new Error(responseData.message || `Error al obtener descuentos: ${response.status}`)
+  }
+  return Array.isArray(responseData.data) ? responseData.data : []
+}
+
+export async function createPosQuantityDiscount(
+  data: CreatePosQuantityDiscountData
+): Promise<PosQuantityDiscount> {
+  const apiUrl = getApiUrl()
+  const token = getAccessToken()
+  const response = await fetch(`${apiUrl}pos-quantity-discounts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  })
+  const responseData: ApiResponse<PosQuantityDiscount> = await response.json()
+  if (!response.ok) {
+    throw new Error(responseData.error || responseData.message || "Error al crear descuento")
+  }
+  return responseData.data
+}
+
+export async function updatePosQuantityDiscount(
+  id: number,
+  data: UpdatePosQuantityDiscountData
+): Promise<PosQuantityDiscount> {
+  const apiUrl = getApiUrl()
+  const token = getAccessToken()
+  const response = await fetch(`${apiUrl}pos-quantity-discounts/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  })
+  const responseData: ApiResponse<PosQuantityDiscount> = await response.json()
+  if (!response.ok) {
+    throw new Error(responseData.error || responseData.message || "Error al actualizar descuento")
+  }
+  return responseData.data
+}
+
+export async function deletePosQuantityDiscount(id: number): Promise<void> {
+  const apiUrl = getApiUrl()
+  const token = getAccessToken()
+  const response = await fetch(`${apiUrl}pos-quantity-discounts/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  const responseData = await response.json()
+  if (!response.ok) {
+    throw new Error(responseData.error || responseData.message || "Error al eliminar descuento")
+  }
+}
+
 export interface Category {
   id: number
   name: string

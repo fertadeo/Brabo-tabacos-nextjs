@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Shield, Users, Key, Receipt, FileText } from "lucide-react"
+import { Shield, Users, Key, Receipt, FileText, Percent } from "lucide-react"
+import { PosQuantityDiscountsSettings } from "@/components/pos-quantity-discounts-settings"
 import { RolesManagement } from "@/components/roles-management"
 import { UsersManagement } from "@/components/users-management"
 import { ExceptionPermissions } from "@/components/exception-permissions"
@@ -360,13 +361,17 @@ function ArcaFacturacionSettingsCard() {
 export default function ConfiguracionPage() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
-  const [activeTab, setActiveTab] = useState<string>(() =>
-    tabParam === "pos" ? "pos" : tabParam === "facturacion" ? "facturacion" : "roles"
-  )
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (tabParam === "pos") return "pos"
+    if (tabParam === "facturacion") return "facturacion"
+    if (tabParam === "descuentos") return "descuentos"
+    return "roles"
+  })
 
   useEffect(() => {
     if (tabParam === "pos") setActiveTab("pos")
     if (tabParam === "facturacion") setActiveTab("facturacion")
+    if (tabParam === "descuentos") setActiveTab("descuentos")
   }, [tabParam])
 
   return (
@@ -378,17 +383,17 @@ export default function ConfiguracionPage() {
             <div>
               <h1 className="text-3xl font-bold flex items-center gap-2">
                 <Shield className="h-8 w-8" />
-                Configuración de Roles y Permisos
+                Configuración
               </h1>
               <p className="text-muted-foreground">
-                Gestión de usuarios, roles y permisos del sistema
+                Usuarios, roles, facturación, POS y descuentos escalonados
               </p>
             </div>
           </div>
 
           {/* Tabs para las diferentes secciones */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="flex h-auto w-full flex-wrap justify-stretch gap-1 bg-muted p-1 md:grid md:grid-cols-5">
+            <TabsList className="flex h-auto w-full flex-wrap justify-stretch gap-1 bg-muted p-1 md:grid md:grid-cols-6">
               <TabsTrigger value="roles" className="flex flex-1 items-center gap-2">
                 <Key className="h-4 w-4 shrink-0" />
                 <span className="truncate">Roles</span>
@@ -408,6 +413,10 @@ export default function ConfiguracionPage() {
               <TabsTrigger value="pos" className="flex flex-1 items-center gap-2">
                 <Receipt className="h-4 w-4 shrink-0" />
                 <span className="truncate">Punto de venta</span>
+              </TabsTrigger>
+              <TabsTrigger value="descuentos" className="flex flex-1 items-center gap-2">
+                <Percent className="h-4 w-4 shrink-0" />
+                <span className="truncate">Descuentos POS</span>
               </TabsTrigger>
             </TabsList>
 
@@ -460,6 +469,10 @@ export default function ConfiguracionPage() {
 
             <TabsContent value="pos" className="space-y-4">
               <PosApiKeyCard />
+            </TabsContent>
+
+            <TabsContent value="descuentos" className="space-y-4">
+              <PosQuantityDiscountsSettings />
             </TabsContent>
           </Tabs>
         </div>

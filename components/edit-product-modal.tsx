@@ -34,6 +34,7 @@ import {
 import { ProductSaveConfirmDialog } from "@/components/product-save-confirm-dialog"
 import { ProductModalCloseDialog } from "@/components/product-modal-close-dialog"
 import { nextIsActiveAfterStockChange } from "@/lib/product-stock-is-active"
+import { PriceListsFields } from "@/components/products/price-lists-fields"
 
 interface EditProductModalProps {
   product: Product | null
@@ -885,65 +886,19 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Listas de precio *</Label>
-                  <p className="text-xs text-muted-foreground">Precios finales con IVA incluido.</p>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="edit-price" className="text-xs text-muted-foreground">
-                        Venta en local
-                      </Label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="edit-price"
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="Ej: 1.250.000"
-                          value={formData.price}
-                          onChange={(e) => handleInputChange("price", e.target.value)}
-                          onFocus={handleNumericFocus}
-                          className="h-10 pl-9"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="edit-price-mayorista" className="text-xs text-muted-foreground">
-                        Mayorista
-                      </Label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="edit-price-mayorista"
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="Ej: 1.100.000"
-                          value={formData.price_mayorista}
-                          onChange={(e) => handleInputChange("price_mayorista", e.target.value)}
-                          onFocus={handleNumericFocus}
-                          className="h-10 pl-9"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="edit-price-revendedor" className="text-xs text-muted-foreground">
-                        Revendedor
-                      </Label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="edit-price-revendedor"
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="Ej: 950.000"
-                          value={formData.price_revendedor}
-                          onChange={(e) => handleInputChange("price_revendedor", e.target.value)}
-                          onFocus={handleNumericFocus}
-                          className="h-10 pl-9"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                <div className="sm:col-span-2">
+                  <PriceListsFields
+                    idPrefix="edit-price"
+                    values={{
+                      price: formData.price,
+                      price_mayorista: formData.price_mayorista,
+                      price_revendedor: formData.price_revendedor,
+                    }}
+                    onChange={(field, value) => handleInputChange(field, value)}
+                    onFocusNumeric={handleNumericFocus}
+                    inputMode="text"
+                    disabled={loading}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-iva-rate">Alícuota IVA</Label>

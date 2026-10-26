@@ -106,6 +106,11 @@ export function PosCartItemRow({
           Lista ARS ${arsRef.toLocaleString("es-AR", FORMAT_NUM)}
         </span>
       ) : null}
+      {!custom && line.kind === "catalog" && (line.discount_percent ?? 0) > 0 && !line.price_overridden ? (
+        <Badge variant="secondary" className="text-[10px] w-fit">
+          −{line.discount_percent}% escalonado
+        </Badge>
+      ) : null}
     </div>
   )
 

@@ -5,9 +5,18 @@ export type PosCatalogCartLine = {
   kind: "catalog"
   product: Product
   quantity: number
+  /** Precio efectivo (con descuento escalonado o edición manual) */
   unit_price: number
-  /** Precio de lista en ARS cuando la venta es en USD */
+  /** Precio de lista (antes de descuento) en moneda de la venta */
+  list_unit_price?: number
+  /** Precio efectivo de referencia en ARS cuando la venta es en USD */
   ars_unit_price?: number
+  /** Precio de lista en ARS (antes de descuento) cuando la venta es en USD */
+  ars_list_unit_price?: number
+  /** % de descuento escalonado aplicado (0 si no hay) */
+  discount_percent?: number
+  /** true si el cajero editó el precio a mano */
+  price_overridden?: boolean
   iva_rate: SaleIvaRate
 }
 

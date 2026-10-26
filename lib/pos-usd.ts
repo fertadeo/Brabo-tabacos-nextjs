@@ -38,17 +38,49 @@ export function formatSaleMoney(
 }
 
 export function cartLineArsReference(line: PosCartLine): number {
+  if (line.kind === "catalog" && line.ars_list_unit_price != null) return line.ars_list_unit_price
   if (line.ars_unit_price != null) return line.ars_unit_price
   if (line.kind === "catalog") return line.product.price
   return line.unit_price
 }
 
 export function convertCartLineToUsd(line: PosCartLine, rate: number): PosCartLine {
+  if (line.kind === "catalog") {
+    const arsList = line.ars_list_unit_price ?? line.list_unit_price ?? cartLineArsReference(line)
+    const arsEffective = line.price_overridden
+      ? line.ars_unit_price ?? cartLineArsReference(line)
+      : arsList * (1 - (Number(line.discount_percent) || 0) / 100)
+    const listUsd = arsToUsd(arsList, rate)
+    const unitUsd = line.price_overridden
+      ? arsToUsd(arsEffective, rate)
+      : roundUsd(listUsd * (1 - (Number(line.discount_percent) || 0) / 100))
+    return {
+      ...line,
+      ars_list_unit_price: arsList,
+      ars_unit_price: roundUsd(arsEffective),
+      list_unit_price: listUsd,
+      unit_price: unitUsd,
+    }
+  }
   const ars = cartLineArsReference(line)
   return { ...line, ars_unit_price: ars, unit_price: arsToUsd(ars, rate) }
 }
 
 export function convertCartLineToArs(line: PosCartLine): PosCartLine {
+  if (line.kind === "catalog") {
+    const arsList = line.ars_list_unit_price ?? line.list_unit_price ?? cartLineArsReference(line)
+    const unit = line.price_overridden
+      ? line.ars_unit_price ?? arsList
+      : roundUsd(arsList * (1 - (Number(line.discount_percent) || 0) / 100))
+    const next = {
+      ...line,
+      list_unit_price: arsList,
+      unit_price: unit,
+    }
+    delete (next as { ars_unit_price?: number }).ars_unit_price
+    delete (next as { ars_list_unit_price?: number }).ars_list_unit_price
+    return next
+  }
   const ars = line.ars_unit_price ?? cartLineArsReference(line)
   const next = { ...line, unit_price: ars }
   delete (next as { ars_unit_price?: number }).ars_unit_price
@@ -56,8 +88,7 @@ export function convertCartLineToArs(line: PosCartLine): PosCartLine {
 }
 
 export function recalcUsdCartLine(line: PosCartLine, rate: number): PosCartLine {
-  const ars = line.ars_unit_price ?? cartLineArsReference(line)
-  return { ...line, ars_unit_price: ars, unit_price: arsToUsd(ars, rate) }
+  return convertCartLineToUsd(line, rate)
 }
 
 export function applyUsdUnitPriceEdit(
@@ -70,6 +101,8 @@ export function applyUsdUnitPriceEdit(
     ...line,
     unit_price: usd,
     ars_unit_price: usdToArs(usd, rate),
+    price_overridden: line.kind === "catalog" ? true : undefined,
+    discount_percent: line.kind === "catalog" ? 0 : undefined,
   }
 }
 

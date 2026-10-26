@@ -27,6 +27,7 @@ import {
 import { ProductSaveConfirmDialog } from "@/components/product-save-confirm-dialog"
 import { ProductModalCloseDialog } from "@/components/product-modal-close-dialog"
 import { nextIsActiveAfterStockChange } from "@/lib/product-stock-is-active"
+import { PriceListsFields } from "@/components/products/price-lists-fields"
 
 interface NewProductModalProps {
   isOpen: boolean
@@ -921,76 +922,18 @@ export function NewProductModal({ isOpen, onClose, onSuccess }: NewProductModalP
                 </div>
 
                 <div className="space-y-5">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Listas de precio *
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Precios finales con IVA incluido.
-                    </p>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="price" className="text-xs text-slate-600 dark:text-slate-400">
-                          Venta en local
-                        </Label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                          <Input
-                            id="price"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.price}
-                            onChange={(e) => handleInputChange("price", e.target.value)}
-                            onFocus={handleNumericFocus}
-                            placeholder="0.00"
-                            className="h-11 pl-9 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:border-turquoise-500 focus:ring-turquoise-500"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="price_mayorista" className="text-xs text-slate-600 dark:text-slate-400">
-                          Mayorista
-                        </Label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                          <Input
-                            id="price_mayorista"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.price_mayorista}
-                            onChange={(e) => handleInputChange("price_mayorista", e.target.value)}
-                            onFocus={handleNumericFocus}
-                            placeholder="0.00"
-                            className="h-11 pl-9 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:border-turquoise-500 focus:ring-turquoise-500"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="price_revendedor" className="text-xs text-slate-600 dark:text-slate-400">
-                          Revendedor
-                        </Label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                          <Input
-                            id="price_revendedor"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.price_revendedor}
-                            onChange={(e) => handleInputChange("price_revendedor", e.target.value)}
-                            onFocus={handleNumericFocus}
-                            placeholder="0.00"
-                            className="h-11 pl-9 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:border-turquoise-500 focus:ring-turquoise-500"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <PriceListsFields
+                    idPrefix="new-price"
+                    values={{
+                      price: formData.price,
+                      price_mayorista: formData.price_mayorista,
+                      price_revendedor: formData.price_revendedor,
+                    }}
+                    onChange={(field, value) => handleInputChange(field, value)}
+                    onFocusNumeric={handleNumericFocus}
+                    inputMode="number"
+                    disabled={loading}
+                  />
 
                   <div className="space-y-2">
                     <Label htmlFor="iva-rate" className="text-sm font-medium text-slate-700 dark:text-slate-300">
