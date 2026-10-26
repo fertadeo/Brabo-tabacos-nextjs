@@ -6537,6 +6537,21 @@ export interface User {
   is_active?: boolean
 }
 
+/** Normaliza la respuesta de la API (isActive) al shape del front (is_active). */
+function normalizeUser(raw: any): User {
+  return {
+    id: Number(raw.id),
+    username: String(raw.username ?? ""),
+    firstName: raw.firstName ?? raw.first_name ?? undefined,
+    lastName: raw.lastName ?? raw.last_name ?? undefined,
+    email: raw.email ?? undefined,
+    role: String(raw.role ?? ""),
+    is_active: raw.is_active !== undefined
+      ? Boolean(raw.is_active)
+      : raw.isActive !== false,
+  }
+}
+
 // ============================================================================
 // PERMISOS API
 // ============================================================================
@@ -6873,6 +6888,7 @@ export async function getUsers(): Promise<User[]> {
     const response = await fetch(fullUrl, {
       method: 'GET',
       headers: getAuthHeaders(),
+      cache: 'no-store',
     })
     
     if (!response.ok) {
@@ -6880,8 +6896,10 @@ export async function getUsers(): Promise<User[]> {
       throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
     }
     
-    const responseData: ApiResponse<User[]> = await response.json()
-    return responseData.data || []
+    const responseData: ApiResponse<User[] | { users: User[] }> = await response.json()
+    const raw = responseData.data
+    const list = Array.isArray(raw) ? raw : (raw as any)?.users
+    return Array.isArray(list) ? list.map(normalizeUser) : []
   } catch (error) {
     console.error('💥 [USERS] Error al obtener usuarios:', error)
     throw error
@@ -7010,11 +7028,14 @@ export async function createUser(userData: {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
+      throw new Error(errorData.error || errorData.message || `Error ${response.status}: ${response.statusText}`)
     }
     
     const responseData: ApiResponse<User> = await response.json()
-    return responseData.data
+    if (!responseData.data) {
+      throw new Error(responseData.message || 'Usuario creado pero sin datos en la respuesta')
+    }
+    return normalizeUser(responseData.data)
   } catch (error) {
     console.error('💥 [USERS] Error al crear usuario:', error)
     throw error
@@ -7064,7 +7085,10 @@ export async function updateUser(
     }
     
     const responseData: ApiResponse<User> = await response.json()
-    return responseData.data
+    if (!responseData.data) {
+      throw new Error(responseData.message || 'Usuario actualizado pero sin datos en la respuesta')
+    }
+    return normalizeUser(responseData.data)
   } catch (error) {
     console.error('💥 [USERS] Error al actualizar usuario:', error)
     throw error

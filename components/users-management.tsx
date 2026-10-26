@@ -141,7 +141,7 @@ export function UsersManagement() {
     setModalError(null)
     setFormErrors({})
     try {
-      await createUser({
+      const created = await createUser({
         username: formData.username.trim(),
         password: formData.password,
         firstName: formData.firstName.trim(),
@@ -151,9 +151,16 @@ export function UsersManagement() {
         is_active: formData.is_active
       })
 
+      // Actualizar tabla de inmediato (sin esperar el reload)
+      setUsers((prev) => {
+        const withoutDup = prev.filter((u) => u.id !== created.id)
+        return [created, ...withoutDup]
+      })
+      setSearchTerm("")
       setIsCreateModalOpen(false)
       resetForm()
-      await loadUsers()
+      // Sincronizar con el servidor en segundo plano
+      void loadUsers()
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Error al crear usuario')
       console.error('Error creando usuario:', err)
@@ -182,7 +189,7 @@ export function UsersManagement() {
     setModalError(null)
     setFormErrors({})
     try {
-      await updateUser(selectedUser.id, {
+      const updated = await updateUser(selectedUser.id, {
         username: formData.username,
         firstName: formData.firstName || undefined,
         lastName: formData.lastName || undefined,
@@ -192,10 +199,11 @@ export function UsersManagement() {
         ...(formData.password && { password: formData.password })
       })
 
+      setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? updated : u)))
       setIsEditModalOpen(false)
       resetForm()
       setSelectedUser(null)
-      await loadUsers()
+      void loadUsers()
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Error al actualizar usuario')
       console.error('Error actualizando usuario:', err)
