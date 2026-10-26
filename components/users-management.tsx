@@ -31,7 +31,9 @@ import {
   XCircle,
   Info,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Eye,
+  EyeOff
 } from "lucide-react"
 import { 
   getUsers, 
@@ -55,6 +57,7 @@ export function UsersManagement() {
   const [selectedRolePermissions, setSelectedRolePermissions] = useState<Permission[]>([])
   const [loadingRolePermissions, setLoadingRolePermissions] = useState(false)
   const [showRolePermissions, setShowRolePermissions] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   
   // Form state
   const [formData, setFormData] = useState({
@@ -191,6 +194,7 @@ export function UsersManagement() {
     })
     setSelectedRolePermissions([])
     setShowRolePermissions(false)
+    setShowPassword(false)
   }
 
   // Cargar permisos del rol cuando se selecciona
@@ -383,13 +387,24 @@ export function UsersManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -568,13 +583,24 @@ export function UsersManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-password">Nueva Contraseña (opcional)</Label>
-                <Input
-                  id="edit-password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="Dejar vacío para no cambiar"
-                />
+                <div className="relative">
+                  <Input
+                    id="edit-password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="Dejar vacío para no cambiar"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
