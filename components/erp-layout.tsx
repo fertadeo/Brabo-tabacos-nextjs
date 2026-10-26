@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
 import { ERPSidebar } from "./erp-sidebar"
+import { ErpAtajosButton, ErpAtajosQuickStrip } from "./erp-atajos"
 import { cn } from "@/lib/utils"
 
 interface ERPLayoutProps {
@@ -15,21 +15,30 @@ interface ERPLayoutProps {
 }
 
 export function ERPLayout({ children, activeItem, wideContent, fullWidth }: ERPLayoutProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-
   return (
     <div className="min-h-screen bg-background">
       <ERPSidebar
         activeItem={activeItem}
         onItemClick={(itemId) => {
-          // En una app real, aquí manejarías la navegación
           console.log(`Navigating to: ${itemId}`)
         }}
       />
 
-      {/* Main content */}
       <main className={cn("transition-all duration-300 md:ml-64 min-h-screen min-w-0")}>
-        <div className="p-4 md:p-6 pt-16 md:pt-6 min-w-0">
+        <header
+          className={cn(
+            "sticky top-0 z-30 border-b bg-background/85 backdrop-blur-md",
+            "px-4 md:px-6 h-14 flex items-center justify-between gap-3",
+            "pl-16 md:pl-6"
+          )}
+        >
+          <ErpAtajosQuickStrip />
+          <div className="flex items-center gap-2 ml-auto shrink-0">
+            <ErpAtajosButton />
+          </div>
+        </header>
+
+        <div className="p-4 md:p-6 min-w-0">
           <div
             className={cn(
               "mx-auto w-full min-w-0",
