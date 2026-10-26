@@ -162,7 +162,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setAuthStatus('no-auth')
           setErrorMessage(null)
           const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
-          const isProtectedRoute = ['/dashboard', '/ventas', '/punto-venta', '/clientes', '/stock', '/compras', '/produccion', '/pedidos', '/presupuestos', '/tienda', '/personal', '/proveedores', '/bancos', '/facturacion', '/caja', '/productos', '/categorias'].some(route => currentPath.startsWith(route))
+          const isProtectedRoute = ['/dashboard', '/ventas', '/punto-venta', '/preventa', '/clientes', '/stock', '/compras', '/produccion', '/pedidos', '/presupuestos', '/tienda', '/personal', '/proveedores', '/bancos', '/facturacion', '/caja', '/productos', '/categorias'].some(route => currentPath.startsWith(route))
           if (isProtectedRoute) {
             router.replace('/login')
           }
@@ -198,7 +198,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Si estamos en una ruta protegida, redirigir al login
       if (typeof window !== 'undefined') {
         const currentPath = window.location.pathname
-        const isProtectedRoute = ['/dashboard', '/ventas', '/punto-venta', '/clientes', '/stock', '/compras', '/produccion', '/pedidos', '/presupuestos', '/tienda', '/personal', '/proveedores', '/bancos', '/facturacion', '/caja'].some(route => currentPath.startsWith(route))
+        const isProtectedRoute = ['/dashboard', '/ventas', '/punto-venta', '/preventa', '/clientes', '/stock', '/compras', '/produccion', '/pedidos', '/presupuestos', '/tienda', '/personal', '/proveedores', '/bancos', '/facturacion', '/caja'].some(route => currentPath.startsWith(route))
         
         if (isProtectedRoute) {
           console.log('🚫 [AUTH_CONTEXT] Error en ruta protegida, redirigiendo al login')
